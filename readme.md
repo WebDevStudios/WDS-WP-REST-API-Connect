@@ -3,7 +3,9 @@ WP JSON API Connect
 
 A tool for connecting to the [JSON-based REST API for WordPress](https://github.com/WP-API/WP-API) via [OAuth 1.0a](https://github.com/WP-API/OAuth1).
 
-To get started, you'll need to install both the [WP JSON API plugin](https://github.com/WP-API/WP-API) and the [OAuth plugin](https://github.com/WP-API/OAuth1). Once installed and activated, you'll need to create a '[Consumer](https://github.com/WP-API/client-cli#step-1-creating-a-consumer)'.
+To get started, you'll need to install both the [WP JSON API plugin](https://github.com/WP-API/WP-API) and the [OAuth plugin](https://github.com/WP-API/OAuth1).  (**Note:** Until the current version of the OAuth1 plugin is patched, you'll need to use [this fork](https://github.com/jtsternberg/OAuth1).)  
+
+Once installed and activated, you'll need to create a '[Consumer](https://github.com/WP-API/client-cli#step-1-creating-a-consumer)'.
 When you have the Consumer key and secret, you'll create a new WP_JSON_API_Connect object by passing those credentials along with the JSON API URL:
 ```php
 // Consumer credentials
