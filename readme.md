@@ -8,9 +8,9 @@ When you have the Consumer key and secret, you'll create a new WP_JSON_API_Conne
 ```php
 // Consumer credentials
 $consumer = array(
-	'consumer_key'        => 'YOUR CONSUMER KEY',
-	'consumer_secret'     => 'YOUR CONSUMER SECRET',
-	'json_url'            => 'JSON API URL OF SITE',
+	'consumer_key'    => 'YOUR CONSUMER KEY',
+	'consumer_secret' => 'YOUR CONSUMER SECRET',
+	'json_url'        => 'JSON API URL OF SITE',
 );
 $api = new WP_JSON_API_Connect( $consumer );
 ```

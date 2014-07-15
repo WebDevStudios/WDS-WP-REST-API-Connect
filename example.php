@@ -11,9 +11,9 @@ function wp_json_api_connect_example_test() {
 
 	// Consumer credentials
 	$consumer = array(
-		'consumer_key'        => 'YOUR CONSUMER KEY',
-		'consumer_secret'     => 'YOUR CONSUMER SECRET',
-		'json_url'            => 'JSON API URL OF SITE',
+		'consumer_key'    => 'YOUR CONSUMER KEY',
+		'consumer_secret' => 'YOUR CONSUMER SECRET',
+		'json_url'        => 'JSON API URL OF SITE',
 	);
 
 	$api = new WP_JSON_API_Connect( $consumer );
