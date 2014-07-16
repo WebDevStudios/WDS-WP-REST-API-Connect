@@ -134,93 +134,6 @@ class WP_JSON_API_Connect {
 	}
 
 	/**
-	 * Retrieve required token for authorization url
-	 *
-	 * @since  0.1.0
-	 *
-	 * @return array Array of token data
-	 */
-	public function get_token() {
-		if ( $this->token_response ) {
-			return $this->token_response;
-		}
-
-		if ( ! ( $this->endpoint_url = $this->request_token_url() ) ) {
-			return false;
-		}
-
-		if ( is_wp_error( $this->endpoint_url ) ) {
-			return $this->endpoint_url;
-		}
-
-		$response = wp_remote_post( esc_url( $this->endpoint_url ), array( 'body' => $this->request_args() ) );
-
-		$body = wp_remote_retrieve_body( $response );
-		if ( ! $body ) {
-			return new WP_Error( 'wp_json_api_request_token_error', sprintf( __( 'Could not retrive body from %s.', 'WP_JSON_API_Connect' ), $this->endpoint_url ) );
-		}
-
-		$this->token_response = $body && ( $json = $this->is_json( $body ) ) ? $json : $body;
-
-		return $this->token_response;
-	}
-
-	/**
-	 * Stores data retrieved by the authorization step
-	 *
-	 * @since  0.1.0
-	 *
-	 * @param  array $args Additional request arguments
-	 *
-	 * @return array|false Array of updated token data or false
-	 */
-	public function store_token_and_secret( $args ) {
-		if ( ! ( $this->endpoint_url = $this->request_access_url() ) ) {
-			return false;
-		}
-
-		$args     = $this->request_args( $args );
-		$response = wp_remote_post( esc_url( $this->endpoint_url ), array( 'body' => $args ) );
-		$body     = wp_remote_retrieve_body( $response );
-
-		if ( ! isset( $response['response']['code'] ) || 200 != $response['response']['code'] ) {
-			return;
-		}
-
-		$token_array = array_merge( $args, $this->parse_str( $body ) );
-
-		if ( isset( $token_array['oauth_token'], $token_array['oauth_verifier'], $token_array['oauth_token_secret'] ) ) {
-
-			$this->update_url_access_tokens( $token_array );
-		}
-
-		return $token_array;
-	}
-
-	/**
-	 * Update option store for oauth tokens for this url
-	 *
-	 * @since  0.1.0
-	 *
-	 * @param  array $args Arguments to check against
-	 *
-	 * @return array       Oauth tokens
-	 */
-	public function update_url_access_tokens( $args ) {
-		$tokens = array_intersect_key( $args, array(
-			'oauth_token',
-			'oauth_token_secret',
-			'oauth_verifier',
-		) );
-
-		if ( ! empty( $tokens ) ) {
-			$this->update_option( 'tokens', $tokens );
-		}
-
-		return $tokens;
-	}
-
-	/**
 	 * Perform an authenticated POST request
 	 *
 	 * @since  0.1.0
@@ -276,6 +189,66 @@ class WP_JSON_API_Connect {
 		$body               = wp_remote_retrieve_body( $response );
 
 		return $body && ( $json = $this->is_json( $body ) ) ? $json : $body;
+	}
+
+	/**
+	 * Get the json_url and append included path
+	 *
+	 * @since  0.1.0
+	 *
+	 * @param  string  $path Option path to append
+	 *
+	 * @return string        JSON request URL
+	 */
+	public function json_url( $path = '' ) {
+		// Make sure we only have a path
+		$path = str_ireplace( $this->args['json_url'], '', $path );
+		$path = ltrim( $path, '/' );
+		return $path ? trailingslashit( $this->args['json_url'] ) . $path : $this->args['json_url'];
+	}
+
+	/**
+	 * Gets the request URL from the JSON description object
+	 *
+	 * @since  0.1.0
+	 *
+	 * @return string  Request URL
+	 */
+	function request_token_url() {
+		return $this->retrieve_and_set_var_from_description( 'request_token_url', 'request' );
+	}
+
+	/**
+	 * Gets the authorization URL from the JSON description object
+	 *
+	 * @since  0.1.0
+	 *
+	 * @return string  Authorization URL
+	 */
+	function request_authorize_url() {
+		return $this->retrieve_and_set_var_from_description( 'request_authorize_url', 'authorize' );
+	}
+
+	/**
+	 * Gets the access URL from the JSON description object
+	 *
+	 * @since  0.1.0
+	 *
+	 * @return string  Access URL
+	 */
+	function request_access_url() {
+		return $this->retrieve_and_set_var_from_description( 'request_access_url', 'access' );
+	}
+
+	/**
+	 * Retrieves the OAuth authentication object from the JSON description object
+	 *
+	 * @since  0.1.0
+	 *
+	 * @return object  Authentication object
+	 */
+	function auth_object() {
+		return $this->retrieve_and_set_var_from_description( 'auth_object' );
 	}
 
 	/**
@@ -394,69 +367,6 @@ class WP_JSON_API_Connect {
 	}
 
 	/**
-	 * Get stored token data from option for json_url
-	 *
-	 * @since  0.1.0
-	 *
-	 * @param  string  $param Get a specific token key value
-	 *
-	 * @return mixed|false    Value of token or false
-	 */
-	public function get_url_access_token_data( $param = '' ) {
-		$tokens = $this->get_option( 'tokens' );
-		if ( ! empty( $tokens ) && $param ) {
-			return array_key_exists( $param, $tokens )
-				? $tokens[ $param ]
-				: false;
-		}
-		return $tokens;
-	}
-
-	/**
-	 * Gets the request URL from the JSON description object
-	 *
-	 * @since  0.1.0
-	 *
-	 * @return string  Request URL
-	 */
-	function request_token_url() {
-		return $this->retrieve_and_set_var_from_description( 'request_token_url', 'request' );
-	}
-
-	/**
-	 * Gets the authorization URL from the JSON description object
-	 *
-	 * @since  0.1.0
-	 *
-	 * @return string  Authorization URL
-	 */
-	function request_authorize_url() {
-		return $this->retrieve_and_set_var_from_description( 'request_authorize_url', 'authorize' );
-	}
-
-	/**
-	 * Gets the access URL from the JSON description object
-	 *
-	 * @since  0.1.0
-	 *
-	 * @return string  Access URL
-	 */
-	function request_access_url() {
-		return $this->retrieve_and_set_var_from_description( 'request_access_url', 'access' );
-	}
-
-	/**
-	 * Retrieves the OAuth authentication object from the JSON description object
-	 *
-	 * @since  0.1.0
-	 *
-	 * @return object  Authentication object
-	 */
-	function auth_object() {
-		return $this->retrieve_and_set_var_from_description( 'auth_object' );
-	}
-
-	/**
 	 * Retrieves a key from the JSON description object and sets a class property
 	 *
 	 * @since  0.1.0
@@ -488,28 +398,6 @@ class WP_JSON_API_Connect {
 		$this->{$var} = $route ? $this->json_desc->authentication->oauth1->{$route} : $this->json_desc->authentication->oauth1;
 
 		return $this->{$var};
-	}
-
-	/**
-	 * Handles outputting a WP_Error for when the OAuth plugin is not active on the client site
-	 *
-	 * @since  0.1.0
-	 *
-	 * @return WP_Error object
-	 */
-	public function oauth_not_enabled_msg() {
-		return new WP_Error( 'wp_json_api_oauth_not_enabled_error', __( "Could not locate OAuth information; are you sure it's enabled?", 'WP_JSON_API_Connect' ) );
-	}
-
-	/**
-	 * Handles outputting a WP_Error for when their is a connection issue
-	 *
-	 * @since  0.1.0
-	 *
-	 * @return WP_Error object
-	 */
-	public function connection_failed_msg() {
-		return new WP_Error( 'wp_json_api_connection_failed_error', __( 'There was a problem connecting to the API URL specified.', 'WP_JSON_API_Connect' ) );
 	}
 
 	/**
@@ -558,49 +446,109 @@ class WP_JSON_API_Connect {
 	}
 
 	/**
-	 * Determines if a string is JSON, and if so, decodes it.
+	 * Get stored token data from option for json_url
 	 *
 	 * @since  0.1.0
 	 *
-	 * @param  string $string String to check if is JSON
+	 * @param  string  $param Get a specific token key value
 	 *
-	 * @return boolean|array  Decoded JSON object or false
+	 * @return mixed|false    Value of token or false
 	 */
-	function is_json( $string ) {
-		return is_string( $string ) && ( $json = json_decode( $string ) ) && ( is_object( $json ) || is_array( $json ) )
-			? $json
-			: false;
+	public function get_url_access_token_data( $param = '' ) {
+		$tokens = $this->get_option( 'tokens' );
+		if ( ! empty( $tokens ) && $param ) {
+			return array_key_exists( $param, $tokens )
+				? $tokens[ $param ]
+				: false;
+		}
+		return $tokens;
 	}
 
 	/**
-	 * Get the json_url and append included path
+	 * Retrieve required token for authorization url
 	 *
 	 * @since  0.1.0
 	 *
-	 * @param  string  $path Option path to append
-	 *
-	 * @return string        JSON request URL
+	 * @return array Array of token data
 	 */
-	public function json_url( $path = '' ) {
-		// Make sure we only have a path
-		$path = str_ireplace( $this->args['json_url'], '', $path );
-		$path = ltrim( $path, '/' );
-		return $path ? trailingslashit( $this->args['json_url'] ) . $path : $this->args['json_url'];
+	public function get_token() {
+		if ( $this->token_response ) {
+			return $this->token_response;
+		}
+
+		if ( ! ( $this->endpoint_url = $this->request_token_url() ) ) {
+			return false;
+		}
+
+		if ( is_wp_error( $this->endpoint_url ) ) {
+			return $this->endpoint_url;
+		}
+
+		$response = wp_remote_post( esc_url( $this->endpoint_url ), array( 'body' => $this->request_args() ) );
+
+		$body = wp_remote_retrieve_body( $response );
+		if ( ! $body ) {
+			return new WP_Error( 'wp_json_api_request_token_error', sprintf( __( 'Could not retrive body from %s.', 'WP_JSON_API_Connect' ), $this->endpoint_url ) );
+		}
+
+		$this->token_response = $body && ( $json = $this->is_json( $body ) ) ? $json : $body;
+
+		return $this->token_response;
 	}
 
 	/**
-	 * Parses a string into an array
+	 * Stores data retrieved by the authorization step
 	 *
 	 * @since  0.1.0
 	 *
-	 * @param  string  $string String to parse
+	 * @param  array $args Additional request arguments
 	 *
-	 * @return array           Parsed array
+	 * @return array|false Array of updated token data or false
 	 */
-	public function parse_str( $string ) {
-		$array = array();
-		parse_str( $string, $array );
-		return (array) $array;
+	public function store_token_and_secret( $args ) {
+		if ( ! ( $this->endpoint_url = $this->request_access_url() ) ) {
+			return false;
+		}
+
+		$args     = $this->request_args( $args );
+		$response = wp_remote_post( esc_url( $this->endpoint_url ), array( 'body' => $args ) );
+		$body     = wp_remote_retrieve_body( $response );
+
+		if ( ! isset( $response['response']['code'] ) || 200 != $response['response']['code'] ) {
+			return;
+		}
+
+		$token_array = array_merge( $args, $this->parse_str( $body ) );
+
+		if ( isset( $token_array['oauth_token'], $token_array['oauth_verifier'], $token_array['oauth_token_secret'] ) ) {
+
+			$this->update_url_access_tokens( $token_array );
+		}
+
+		return $token_array;
+	}
+
+	/**
+	 * Update option store for oauth tokens for this url
+	 *
+	 * @since  0.1.0
+	 *
+	 * @param  array $args Arguments to check against
+	 *
+	 * @return array       Oauth tokens
+	 */
+	public function update_url_access_tokens( $args ) {
+		$tokens = array_intersect_key( $args, array(
+			'oauth_token',
+			'oauth_token_secret',
+			'oauth_verifier',
+		) );
+
+		if ( ! empty( $tokens ) ) {
+			$this->update_option( 'tokens', $tokens );
+		}
+
+		return $tokens;
 	}
 
 	/**
@@ -697,6 +645,58 @@ class WP_JSON_API_Connect {
 			return $this->do_update();
 		}
 		return false;
+	}
+
+	/**
+	 * Parses a string into an array
+	 *
+	 * @since  0.1.0
+	 *
+	 * @param  string  $string String to parse
+	 *
+	 * @return array           Parsed array
+	 */
+	public function parse_str( $string ) {
+		$array = array();
+		parse_str( $string, $array );
+		return (array) $array;
+	}
+
+	/**
+	 * Determines if a string is JSON, and if so, decodes it.
+	 *
+	 * @since  0.1.0
+	 *
+	 * @param  string $string String to check if is JSON
+	 *
+	 * @return boolean|array  Decoded JSON object or false
+	 */
+	function is_json( $string ) {
+		return is_string( $string ) && ( $json = json_decode( $string ) ) && ( is_object( $json ) || is_array( $json ) )
+			? $json
+			: false;
+	}
+
+	/**
+	 * Handles outputting a WP_Error for when the OAuth plugin is not active on the client site
+	 *
+	 * @since  0.1.0
+	 *
+	 * @return WP_Error object
+	 */
+	public function oauth_not_enabled_msg() {
+		return new WP_Error( 'wp_json_api_oauth_not_enabled_error', __( "Could not locate OAuth information; are you sure it's enabled?", 'WP_JSON_API_Connect' ) );
+	}
+
+	/**
+	 * Handles outputting a WP_Error for when their is a connection issue
+	 *
+	 * @since  0.1.0
+	 *
+	 * @return WP_Error object
+	 */
+	public function connection_failed_msg() {
+		return new WP_Error( 'wp_json_api_connection_failed_error', __( 'There was a problem connecting to the API URL specified.', 'WP_JSON_API_Connect' ) );
 	}
 
 	/**
