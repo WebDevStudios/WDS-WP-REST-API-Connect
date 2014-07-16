@@ -237,7 +237,6 @@ class WP_JSON_API_Connect {
 		}
 
 		$this->endpoint_url   = $this->json_url( $path );
-		echo '<xmp>$this->endpoint_url: '. print_r( $this->endpoint_url, true ) .'</xmp>';
 		$request_args         = (array) $token_data;
 		$request_args['data'] = (array) $data;
 		$oauth_args           = $this->request_args( $request_args );
@@ -268,7 +267,6 @@ class WP_JSON_API_Connect {
 
 		// create our unique oauth signature
 		$this->request_args['oauth_signature'] = $this->oauth_signature();
-		// echo '<xmp>oauth_signature: '. print_r( $this->request_args['oauth_signature'], true ) .'</xmp>';
 
 		return $this->request_args;
 	}
