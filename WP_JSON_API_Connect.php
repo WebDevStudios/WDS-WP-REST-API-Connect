@@ -14,42 +14,42 @@ class WP_JSON_API_Connect {
 	 *
 	 * @var JSON object
 	 */
-	protected $json_desc      = null;
+	protected $json_desc = null;
 
 	/**
 	 * Connect object arguments
 	 *
 	 * @var array
 	 */
-	protected $args           = array();
+	protected $args = array();
 
 	/**
 	 * Generated santized key based on json_url
 	 *
 	 * @var string
 	 */
-	protected $key            = '';
+	protected $key = '';
 
 	/**
 	 * Option key based on json_url
 	 *
 	 * @var string
 	 */
-	protected $option_key     = '';
+	protected $option_key = '';
 
 	/**
 	 * The URL being requested
 	 *
 	 * @var string
 	 */
-	protected $endpoint_url   = '';
+	protected $endpoint_url = '';
 
 	/**
 	 * The OAuth object in the JSON description object
 	 *
 	 * @var object
 	 */
-	protected $auth_object    = null;
+	protected $auth_object = null;
 
 	/**
 	 * Retrieved token for authorization URL
@@ -63,14 +63,14 @@ class WP_JSON_API_Connect {
 	 *
 	 * @var array
 	 */
-	protected $request_args   = false;
+	protected $request_args = false;
 
 	/**
 	 * Stored options containing token data for a URL
 	 *
 	 * @var array
 	 */
-	protected $options        = array();
+	protected $options = array();
 
 	/**
 	 * Initate our connect object
@@ -221,7 +221,7 @@ class WP_JSON_API_Connect {
 	}
 
 	/**
-	 * Perform an authenticated request
+	 * Perform an authenticated POST request
 	 *
 	 * @since  0.1.0
 	 *
@@ -230,18 +230,50 @@ class WP_JSON_API_Connect {
 	 *
 	 * @return object|WP_Error Updated object, or WP_Error
 	 */
-	public function auth_request( $path, $data ) {
+	public function auth_post_request( $path, $data ) {
+		return $this->auth_request( $path, array( 'data' => (array) $data ), 'POST' );
+	}
+
+	/**
+	 * Perform an authenticated GET request
+	 *
+	 * @since  0.1.0
+	 *
+	 * @param  string $path    Url endpoint path to resource
+	 *
+	 * @return object|WP_Error Updated object, or WP_Error
+	 */
+	public function auth_get_request( $path = '' ) {
+		return $this->auth_request( $path );
+	}
+
+	/**
+	 * Perform an authenticated request
+	 *
+	 * @since  0.1.0
+	 *
+	 * @param  string $path    Url endpoint path to resource
+	 * @param  array  $data    Array of data to update resource
+	 * @param  string $method  Request method. Defaults to GET
+	 *
+	 * @return object|WP_Error Updated object, or WP_Error
+	 */
+	public function auth_request( $path = '', $request_args = array(), $method = 'GET' ) {
 
 		if ( ! ( $token_data = $this->get_url_access_token_data() ) ) {
 			return new WP_Error( 'wp_json_api_missing_token_data', sprintf( __( 'Missing token data. Try <a href="%s">reauthenticating</a>.', 'WP_JSON_API_Connect' 	), $this->get_authorization_url() ) );
 		}
 
-		$this->endpoint_url   = $this->json_url( $path );
-		$request_args         = (array) $token_data;
-		$request_args['data'] = (array) $data;
-		$oauth_args           = $this->request_args( $request_args );
-		$response             = wp_remote_post( $this->endpoint_url, array( 'body' => $oauth_args ) );
-		$body                 = wp_remote_retrieve_body( $response );
+		if ( ! $path ) {
+			return $this->get_api_description();
+		}
+
+		$this->endpoint_url = $this->json_url( $path );
+		$request_args       = array_merge( (array) $token_data, $request_args );
+		$oauth_args         = $this->request_args( $request_args );
+		$args               = array( 'method' => $method, 'body' => $oauth_args );
+		$response           = wp_remote_request( $this->endpoint_url, $args );
+		$body               = wp_remote_retrieve_body( $response );
 
 		return $body && ( $json = $this->is_json( $body ) ) ? $json : $body;
 	}
@@ -439,8 +471,9 @@ class WP_JSON_API_Connect {
 			return $this->{$var};
 		}
 		if ( ! $this->json_desc ) {
-			if ( ! $this->cache_api_description_for_json_url() ) {
-				return $this->connection_failed_msg();
+			$desc = $this->get_api_description();
+			if ( is_wp_error( $desc ) ) {
+				return $desc;
 			}
 		}
 
@@ -480,7 +513,23 @@ class WP_JSON_API_Connect {
 	}
 
 	/**
-	 * Retrieves and caches the Description object
+	 * Retrieves the Description object
+	 *
+	 * @since  0.1.0
+	 *
+	 * @return object  Description object for json_url
+	 */
+	public function get_api_description() {
+		if ( ! $this->json_desc ) {
+			if ( ! $this->cache_api_description_for_json_url() ) {
+				return $this->connection_failed_msg();
+			}
+		}
+		return $this->json_desc;
+	}
+
+	/**
+	 * Fetches and caches the Description object
 	 *
 	 * @since  0.1.0
 	 *
@@ -661,7 +710,7 @@ class WP_JSON_API_Connect {
 	 */
 	public function __get( $field ) {
 		switch( $field ) {
-			case 'json':
+			case 'json_desc':
 			case 'args':
 			case 'option_key':
 				return $this->{$field};
