@@ -3,6 +3,15 @@
 /**
  * Connect to the WordPress JSON API using WordPress APIs
  *
+ * API Documentation
+ * https://github.com/WP-API/WP-API/tree/master/docs
+ *
+ * OAuth Authentication API
+ * https://github.com/WP-API/OAuth1/blob/master/docs/spec.md
+ *
+ * The OAuth 1.0 Protocol
+ * http://tools.ietf.org/html/rfc5849
+ *
  * @author  Justin Sternberg <justin@webdevstudios.com>
  * @package WP_JSON_API_Connect
  * @version 0.1.0
