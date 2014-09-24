@@ -14,7 +14,7 @@
  *
  * @author  Justin Sternberg <justin@webdevstudios.com>
  * @package WP_JSON_API_Connect
- * @version 0.1.0
+ * @version 0.1.1
  */
 class WP_JSON_API_Connect {
 
@@ -305,9 +305,19 @@ class WP_JSON_API_Connect {
 			unset( $this->request_args['oauth_signature'] );
 		}
 
+		// normalize parameter key/values
+		array_walk_recursive( $this->request_args, array( $this, 'normalize_parameters' ) );
+
+		// sort parameters
+		if ( ! uksort( $this->request_args, 'strcmp' ) ) {
+			return new WP_Error( 'json_oauth1_failed_parameter_sort', __( 'Invalid Signature - failed to sort parameters' ), array( 'status' => 401 ) );
+		}
+
 		$query_string = $this->create_signature_string( $this->request_args );
 
-		$string_to_sign = 'POST&'. rawurlencode( $this->endpoint_url ) .'&'. $query_string;
+		$query_string = $this->create_signature_string( $this->request_args );
+
+		$string_to_sign = 'POST&' . rawurlencode( $this->endpoint_url ) . '&' . $query_string;
 
 		$this->args['oauth_token_secret'] = array_key_exists( 'oauth_token_secret', $this->request_args )
 			? $this->request_args['oauth_token_secret']
@@ -321,18 +331,12 @@ class WP_JSON_API_Connect {
 	/**
 	 * Creates a signature string from all query parameters
 	 *
-	 * @since  0.1.0
-	 *
+	 * @since  0.1.1
 	 * @param  array  $params Array of query parameters
-	 *
 	 * @return string         Signature string
 	 */
 	public function create_signature_string( $params ) {
-		ksort( $params );
-		// normalize parameter key/values
-		array_walk_recursive( $params, array( $this, 'normalize_parameters' ) );
-		// join with ampersand
-		return implode( '%26', $this->sringify_params( $params ) );
+		return implode( '%26', $this->join_with_equals_sign( $params ) ); // join with ampersand
 	}
 
 	/**
@@ -351,37 +355,29 @@ class WP_JSON_API_Connect {
 	}
 
 	/**
-	 * Creates a urlencoded string out of an array of query parameters
+	 * Creates an array of urlencoded strings out of each array key/value pairs
 	 *
-	 * @since  0.1.0
-	 *
-	 * @param  array  $params Array of parameters to convert.
-	 * @param  string $key    Optional Array key to append
-	 *
-	 * @return string         Urlencoded string
+	 * @since  0.1.1
+	 * @param  array  $params       Array of parameters to convert.
+	 * @param  array  $query_params Array to extend.
+	 * @param  string $key          Optional Array key to append
+	 * @return string               Array of urlencoded strings
 	 */
-	public function sringify_params( $params, $key = '' ) {
-
-		if ( ! isset( $this->query_params ) ) {
-			$this->query_params = array();
-		}
-
+	public function join_with_equals_sign( $params, $query_params = array(), $key = '' ) {
 		foreach ( $params as $param_key => $param_value ) {
 			if ( is_array( $param_value ) ) {
-				// Recursive
-				$this->sringify_params( $param_value, $param_key );
+				$query_params = $this->join_with_equals_sign( $param_value, $query_params, $param_key );
 			} else {
 				if ( $key ) {
-					// Handles arrays of data
-					$param_key = $key . '[' . $param_key . ']';
+					$param_key = $key . '[' . $param_key . ']'; // Handle multi-dimensional array
 				}
-				// join with equals sign
-				$string = $param_key . '=' . $param_value;
-				$this->query_params[] = urlencode( $string );
+				$string = $param_key . '=' . $param_value; // join with equals sign
+				$query_params[] = urlencode( $string );
 			}
 		}
-		return $this->query_params;
+		return $query_params;
 	}
+
 
 	/**
 	 * Retrieves a key from the JSON description object and sets a class property
