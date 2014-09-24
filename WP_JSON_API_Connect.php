@@ -556,9 +556,9 @@ class WP_JSON_API_Connect {
 	 */
 	public function update_url_access_tokens( $args ) {
 		$tokens = array_intersect_key( $args, array(
-			'oauth_token',
-			'oauth_token_secret',
-			'oauth_verifier',
+			'oauth_token' => '',
+			'oauth_token_secret' => '',
+			'oauth_verifier' => '',
 		) );
 
 		if ( ! empty( $tokens ) ) {
