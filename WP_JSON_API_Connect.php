@@ -157,7 +157,7 @@ class WP_JSON_API_Connect {
 	 * @return object|WP_Error Updated object, or WP_Error
 	 */
 	public function auth_post_request( $path, $data ) {
-		return $this->auth_request( $path, array( 'data' => (array) $data ), 'POST' );
+		return $this->auth_request( $path, (array) $data, 'POST' );
 	}
 
 	/**
