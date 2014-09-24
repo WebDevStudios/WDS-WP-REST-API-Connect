@@ -126,6 +126,10 @@ class WP_JSON_API_Connect {
 		}
 
 		$token = $this->get_token();
+		if ( is_wp_error( $token ) ) {
+			return $token;
+		}
+
 		$token_array = $this->parse_str( $token );
 
 		$callback_query_params = array_merge( array(
@@ -183,7 +187,11 @@ class WP_JSON_API_Connect {
 	public function auth_request( $path = '', $request_args = array(), $method = 'GET' ) {
 
 		if ( ! ( $token_data = $this->get_url_access_token_data() ) ) {
-			return new WP_Error( 'wp_json_api_missing_token_data', sprintf( __( 'Missing token data. Try <a href="%s">reauthenticating</a>.', 'WP_JSON_API_Connect' 	), $this->get_authorization_url() ) );
+			$url = $this->get_authorization_url();
+			if ( is_wp_error( $url ) ) {
+				return $url;
+			}
+			return new WP_Error( 'wp_json_api_missing_token_data', sprintf( __( 'Missing token data. Try <a href="%s">reauthenticating</a>.', 'WP_JSON_API_Connect' 	), $url ) );
 		}
 
 		if ( ! $path ) {
