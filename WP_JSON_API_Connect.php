@@ -178,11 +178,11 @@ class WP_JSON_API_Connect {
 	 *
 	 * @since  0.1.0
 	 *
-	 * @param  string $path    Url endpoint path to resource
-	 * @param  array  $data    Array of data to update resource
-	 * @param  string $method  Request method. Defaults to GET
+	 * @param  string $path         Url endpoint path to resource
+	 * @param  array  $request_args Array of data to update resource
+	 * @param  string $method       Request method. Defaults to GET
 	 *
-	 * @return object|WP_Error Updated object, or WP_Error
+	 * @return object|WP_Error      Updated object, or WP_Error
 	 */
 	public function auth_request( $path = '', $request_args = array(), $method = 'GET' ) {
 
@@ -201,7 +201,13 @@ class WP_JSON_API_Connect {
 		$this->endpoint_url = $this->json_url( $path );
 		$request_args       = array_merge( (array) $token_data, $request_args );
 		$oauth_args         = $this->request_args( $request_args, $method );
-		$args               = array( 'method' => $method, 'body' => $oauth_args );
+
+		$args = in_array( $method, array( 'GET', 'HEAD', 'DELETE' ), true )
+			? array( 'headers' => array(
+				'Authorization' => 'OAuth '. $this->authorize_header_string( $oauth_args ),
+			) )
+			: array( 'method' => $method, 'body' => $oauth_args );
+
 		$response           = wp_remote_request( $this->endpoint_url, $args );
 		$body               = wp_remote_retrieve_body( $response );
 
@@ -378,6 +384,26 @@ class WP_JSON_API_Connect {
 		return $query_params;
 	}
 
+	/**
+	 * Creates a string out of the header arguments array
+	 * @since  1.0.0
+	 * @param  array  $params Header arguments array
+	 * @return string         Header arguments array in string format
+	 */
+	protected function authorize_header_string( $oauth ) {
+		$header = '';
+		$values = array();
+		ksort( $oauth );
+		foreach( $oauth as $key => $value ) {
+			if ( $key == 'screen_name' || $key == 'count' )
+				continue;
+			$values[] = $key .'="'. rawurlencode( $value ) .'"';
+		}
+
+		$header .= implode( ', ', $values );
+
+		return $header;
+	}
 
 	/**
 	 * Retrieves a key from the JSON description object and sets a class property
