@@ -200,7 +200,7 @@ class WP_JSON_API_Connect {
 
 		$this->endpoint_url = $this->json_url( $path );
 		$request_args       = array_merge( (array) $token_data, $request_args );
-		$oauth_args         = $this->request_args( $request_args );
+		$oauth_args         = $this->request_args( $request_args, $method );
 		$args               = array( 'method' => $method, 'body' => $oauth_args );
 		$response           = wp_remote_request( $this->endpoint_url, $args );
 		$body               = wp_remote_retrieve_body( $response );
@@ -277,18 +277,20 @@ class WP_JSON_API_Connect {
 	 *
 	 * @return array       Request arguments array
 	 */
-	function request_args( $header_args = array() ) {
+	function request_args( $header_args = array(), $method = 'GET' ) {
 		// Set our oauth data
 		$this->request_args = wp_parse_args( $header_args, array(
 			'oauth_consumer_key'     => $this->args['consumer_key'],
-			'oauth_nonce'            => time(),
 			'oauth_signature_method' => 'HMAC-SHA1',
 			'oauth_timestamp'        => time(),
 			'oauth_version'          => $this->auth_object()->version,
 		) );
 
+		// create our nonce
+		$this->request_args['oauth_nonce'] = wp_create_nonce( md5( serialize( array_merge( array( 'method' => $method ), $this->request_args ) ) ) );
+
 		// create our unique oauth signature
-		$this->request_args['oauth_signature'] = $this->oauth_signature();
+		$this->request_args['oauth_signature'] = $this->oauth_signature( $this->request_args, $method );
 
 		return $this->request_args;
 	}
@@ -300,27 +302,25 @@ class WP_JSON_API_Connect {
 	 *
 	 * @return string Unique Oauth signature
 	 */
-	function oauth_signature() {
-		if ( isset( $this->request_args['oauth_signature'] ) ) {
-			unset( $this->request_args['oauth_signature'] );
+	function oauth_signature( $args, $method = 'GET' ) {
+		if ( isset( $args['oauth_signature'] ) ) {
+			unset( $args['oauth_signature'] );
 		}
 
 		// normalize parameter key/values
-		array_walk_recursive( $this->request_args, array( $this, 'normalize_parameters' ) );
+		array_walk_recursive( $args, array( $this, 'normalize_parameters' ) );
 
 		// sort parameters
-		if ( ! uksort( $this->request_args, 'strcmp' ) ) {
+		if ( ! uksort( $args, 'strcmp' ) ) {
 			return new WP_Error( 'json_oauth1_failed_parameter_sort', __( 'Invalid Signature - failed to sort parameters' ), array( 'status' => 401 ) );
 		}
 
-		$query_string = $this->create_signature_string( $this->request_args );
+		$query_string = $this->create_signature_string( $args );
 
-		$query_string = $this->create_signature_string( $this->request_args );
+		$string_to_sign = $method . '&' . rawurlencode( $this->endpoint_url ) . '&' . $query_string;
 
-		$string_to_sign = 'POST&' . rawurlencode( $this->endpoint_url ) . '&' . $query_string;
-
-		$this->args['oauth_token_secret'] = array_key_exists( 'oauth_token_secret', $this->request_args )
-			? $this->request_args['oauth_token_secret']
+		$this->args['oauth_token_secret'] = array_key_exists( 'oauth_token_secret', $args )
+			? $args['oauth_token_secret']
 			: $this->args['oauth_token_secret'];
 
 		$composite_key = rawurlencode( $this->args['consumer_secret'] ) .'&'. rawurlencode( $this->args['oauth_token_secret'] );
