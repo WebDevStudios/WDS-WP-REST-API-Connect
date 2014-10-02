@@ -473,8 +473,26 @@ class WP_JSON_API_Connect {
 
 		$response = wp_remote_get( $this->args['json_url'] );
 		$body = wp_remote_retrieve_body( $response );
+
 		if ( ! $body ) {
-			throw new Exception( "Could not retrive body from {$this->args['json_url']}." );
+			$error_message = sprintf( __( 'Could not retrive body from URL: "%s"', 'WP_JSON_API_Connect' ), $this->args['json_url'] );
+
+			if ( defined( 'WP_DEBUG' ) ) {
+
+				error_log( 'request args: '. print_r( $this->args, true ) );
+				error_log( 'request response: '. print_r( $response, true ) );
+				throw new Exception( $error_message );
+
+			} else {
+
+				delete_option( 'wp_json_api_connect_error' );
+				add_option( 'wp_json_api_connect_error', array(
+					'message'          => $error_message,
+					'request_args'     => print_r( $this->args, true ),
+					'request_response' => print_r( $response, true ),
+				), '', 'no' );
+
+			}
 		}
 
 		$this->json_desc = $body && ( $json = $this->is_json( $body ) ) ? $json : false;
