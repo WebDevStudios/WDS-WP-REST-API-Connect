@@ -485,9 +485,10 @@ class WP_JSON_API_Connect {
 			), '', 'no' );
 
 			if ( defined( 'WP_DEBUG' ) ) {
+				error_log( 'error: '. $error_message );
 				error_log( 'request args: '. print_r( $this->args, true ) );
 				error_log( 'request response: '. print_r( $response, true ) );
-				throw new Exception( $error_message );
+				// throw new Exception( $error_message );
 			}
 
 		}
