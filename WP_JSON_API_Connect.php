@@ -203,9 +203,11 @@ class WP_JSON_API_Connect {
 		$oauth_args         = $this->request_args( $request_args, $method );
 
 		$args = in_array( $method, array( 'GET', 'HEAD', 'DELETE' ), true )
-			? array( 'headers' => array(
-				'Authorization' => 'OAuth '. $this->authorize_header_string( $oauth_args ),
-			) )
+			? array(
+				'headers' => array(
+					'Authorization' => 'OAuth '. $this->authorize_header_string( $oauth_args ),
+				)
+			)
 			: array( 'method' => $method, 'body' => $oauth_args );
 
 		$response           = wp_remote_request( $this->endpoint_url, $args );
@@ -394,7 +396,7 @@ class WP_JSON_API_Connect {
 		$header = '';
 		$values = array();
 		ksort( $oauth );
-		foreach( $oauth as $key => $value ) {
+		foreach ( $oauth as $key => $value ) {
 			if ( $key == 'screen_name' || $key == 'count' )
 				continue;
 			$values[] = $key .'="'. rawurlencode( $value ) .'"';
@@ -748,7 +750,7 @@ class WP_JSON_API_Connect {
 	 * @return mixed
 	 */
 	public function __get( $field ) {
-		switch( $field ) {
+		switch ( $field ) {
 			case 'json_desc':
 			case 'args':
 			case 'option_key':

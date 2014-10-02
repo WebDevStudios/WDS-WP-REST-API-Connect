@@ -18,7 +18,7 @@ function wp_json_api_connect_example_test() {
 
 	$api = new WP_JSON_API_Connect( $consumer );
 
-	$auth_url = $api->get_authorization_url( array( 'test_api' => $_GET['test_api'] ) );
+	$auth_url = $api->get_authorization_url();
 
 	// Only returns URL if not yet authenticated
 	if ( $auth_url ) {
