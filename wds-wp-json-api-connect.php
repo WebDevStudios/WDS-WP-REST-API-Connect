@@ -13,10 +13,10 @@
  * http://tools.ietf.org/html/rfc5849
  *
  * @author  Justin Sternberg <justin@webdevstudios.com>
- * @package WP_JSON_API_Connect
+ * @package WDS_WP_JSON_API_Connect
  * @version 0.1.1
  */
-class WP_JSON_API_Connect {
+class WDS_WP_JSON_API_Connect {
 
 	/**
 	 * JSON description object from the json_url
@@ -191,7 +191,7 @@ class WP_JSON_API_Connect {
 			if ( is_wp_error( $url ) ) {
 				return $url;
 			}
-			return new WP_Error( 'wp_json_api_missing_token_data', sprintf( __( 'Missing token data. Try <a href="%s">reauthenticating</a>.', 'WP_JSON_API_Connect' 	), $url ) );
+			return new WP_Error( 'wp_json_api_missing_token_data', sprintf( __( 'Missing token data. Try <a href="%s">reauthenticating</a>.', 'WDS_WP_JSON_API_Connect' 	), $url ) );
 		}
 
 		if ( ! $path ) {
@@ -475,7 +475,7 @@ class WP_JSON_API_Connect {
 		$body = wp_remote_retrieve_body( $response );
 
 		if ( ! $body ) {
-			$error_message = sprintf( __( 'Could not retrive body from URL: "%s"', 'WP_JSON_API_Connect' ), $this->args['json_url'] );
+			$error_message = sprintf( __( 'Could not retrive body from URL: "%s"', 'WDS_WP_JSON_API_Connect' ), $this->args['json_url'] );
 
 			delete_option( 'wp_json_api_connect_error' );
 			add_option( 'wp_json_api_connect_error', array(
@@ -545,7 +545,7 @@ class WP_JSON_API_Connect {
 
 		$body = wp_remote_retrieve_body( $response );
 		if ( ! $body ) {
-			return new WP_Error( 'wp_json_api_request_token_error', sprintf( __( 'Could not retrive body from %s.', 'WP_JSON_API_Connect' ), $this->endpoint_url ) );
+			return new WP_Error( 'wp_json_api_request_token_error', sprintf( __( 'Could not retrive body from %s.', 'WDS_WP_JSON_API_Connect' ), $this->endpoint_url ) );
 		}
 
 		$this->token_response = $body && ( $json = $this->is_json( $body ) ) ? $json : $body;
@@ -742,7 +742,7 @@ class WP_JSON_API_Connect {
 	 * @return WP_Error object
 	 */
 	public function oauth_not_enabled_msg() {
-		return new WP_Error( 'wp_json_api_oauth_not_enabled_error', __( "Could not locate OAuth information; are you sure it's enabled?", 'WP_JSON_API_Connect' ) );
+		return new WP_Error( 'wp_json_api_oauth_not_enabled_error', __( "Could not locate OAuth information; are you sure it's enabled?", 'WDS_WP_JSON_API_Connect' ) );
 	}
 
 	/**
@@ -753,7 +753,7 @@ class WP_JSON_API_Connect {
 	 * @return WP_Error object
 	 */
 	public function connection_failed_msg() {
-		return new WP_Error( 'wp_json_api_connection_failed_error', __( 'There was a problem connecting to the API URL specified.', 'WP_JSON_API_Connect' ) );
+		return new WP_Error( 'wp_json_api_connection_failed_error', __( 'There was a problem connecting to the API URL specified.', 'WDS_WP_JSON_API_Connect' ) );
 	}
 
 	/**

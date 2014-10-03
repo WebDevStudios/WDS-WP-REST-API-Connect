@@ -1,11 +1,11 @@
 <?php
 
-if ( ! class_exists( 'WP_JSON_API_Connect' ) ) {
-	require_once( 'WP_JSON_API_Connect.php' );
+if ( ! class_exists( 'WDS_WP_JSON_API_Connect' ) ) {
+	require_once( 'WDS_WP_JSON_API_Connect.php' );
 }
 
 /**
- * Example WP_JSON_API_Connect usage
+ * Example WDS_WP_JSON_API_Connect usage
  */
 function wp_json_api_connect_example_test() {
 
@@ -16,7 +16,7 @@ function wp_json_api_connect_example_test() {
 		'json_url'        => 'JSON API URL OF SITE',
 	);
 
-	$api = new WP_JSON_API_Connect( $consumer );
+	$api = new WDS_WP_JSON_API_Connect( $consumer );
 
 	$auth_url = $api->get_authorization_url();
 
