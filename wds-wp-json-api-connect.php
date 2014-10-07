@@ -120,10 +120,11 @@ class WDS_WP_JSON_API_Connect {
 	 * @since  0.1.0
 	 *
 	 * @param  array $callback_query_params Additional query paramaters
+	 * @param  array $return_url          URL to return to when authorized.
 	 *
 	 * @return string|false                 Authorization Request URL
 	 */
-	public function get_authorization_url( $callback_query_params = array() ) {
+	public function get_authorization_url( $callback_query_params = array(), $return_url = '' ) {
 		if ( ! ( $request_authorize_url = $this->request_authorize_url() ) ) {
 			return false;
 		}
@@ -147,9 +148,12 @@ class WDS_WP_JSON_API_Connect {
 			'oauth_authorize_url' => urlencode( $this->args['json_url'] ),
 		), $callback_query_params );
 
+		// Build redirect URL
+		$return_url = $return_url ? esc_url( $return_url ) : ( is_ssl() ? 'https://' : 'http://' ) . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+
 		$query_args = array(
 			'oauth_token' => $token_array['oauth_token'],
-			'oauth_callback' => urlencode( add_query_arg( $callback_query_params, admin_url() ) ),
+			'oauth_callback' => urlencode( add_query_arg( $callback_query_params, $return_url ) ),
 		);
 
 		$request_url = add_query_arg( $query_args, esc_url( $request_authorize_url ) );
@@ -204,7 +208,7 @@ class WDS_WP_JSON_API_Connect {
 			if ( is_wp_error( $url ) ) {
 				return $url;
 			}
-			return new WP_Error( 'wp_json_api_missing_token_data', sprintf( __( 'Missing token data. Try <a href="%s">reauthenticating</a>.', 'WDS_WP_JSON_API_Connect' 	), $url ) );
+			return new WP_Error( 'wp_json_api_missing_token_data', sprintf( __( 'Missing token data. Try <a href="%s">reauthenticating</a>.', 'WDS_WP_JSON_API_Connect' ), $url ), $url );
 		}
 
 		if ( ! $path ) {
@@ -306,6 +310,8 @@ class WDS_WP_JSON_API_Connect {
 			'oauth_timestamp'        => time(),
 			'oauth_version'          => $this->auth_object()->version,
 		) );
+
+		require_once( ABSPATH . WPINC . '/pluggable.php' );
 
 		// create our nonce
 		$this->request_args['oauth_nonce'] = wp_create_nonce( md5( serialize( array_merge( array( 'method' => $this->method ), $this->request_args ) ) ) );
@@ -558,6 +564,10 @@ class WDS_WP_JSON_API_Connect {
 
 		$args     = array( 'body' => $this->request_args() );
 		$response = wp_remote_post( esc_url( $this->endpoint_url ), $args );
+
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
 
 		if ( ! isset( $response['response']['code'] ) || 200 != $response['response']['code'] ) {
 			return new WP_Error( 'wp_json_api_request_token_error', sprintf( __( 'There was an error retrieving the token from %s.', 'WDS_WP_JSON_API_Connect' ), $this->endpoint_url ), array( 'response' => $response, 'request_args' => $args ) );
