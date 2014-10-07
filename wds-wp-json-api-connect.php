@@ -474,7 +474,7 @@ class WDS_WP_JSON_API_Connect {
 		$response = wp_remote_get( $this->args['json_url'] );
 		$body = wp_remote_retrieve_body( $response );
 
-		if ( ! $body ) {
+		if ( ! $body || ( isset( $response['response']['code'] ) && 200 != $response['response']['code'] ) ) {
 			$error_message = sprintf( __( 'Could not retrive body from URL: "%s"', 'WDS_WP_JSON_API_Connect' ), $this->args['json_url'] );
 
 			delete_option( 'wp_json_api_connect_error' );
