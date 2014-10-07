@@ -82,6 +82,13 @@ class WDS_WP_JSON_API_Connect {
 	protected $options = array();
 
 	/**
+	 * Default request method
+	 *
+	 * @var string
+	 */
+	protected $method = 'GET';
+
+	/**
 	 * Initate our connect object
 	 *
 	 * @since 0.1.0
@@ -131,6 +138,10 @@ class WDS_WP_JSON_API_Connect {
 		}
 
 		$token_array = $this->parse_str( $token );
+
+		if ( ! isset( $token_array['oauth_token'] ) ) {
+			return new WP_Error( 'wp_json_api_get_token_error', sprintf( __( 'There was an error retrieving the token from %s.', 'WDS_WP_JSON_API_Connect' ), $this->endpoint_url ), array( 'token' => $token, 'request_authorize_url' => $request_authorize_url, 'method' => $this->method ) );
+		}
 
 		$callback_query_params = array_merge( array(
 			'oauth_authorize_url' => urlencode( $this->args['json_url'] ),
@@ -186,6 +197,8 @@ class WDS_WP_JSON_API_Connect {
 	 */
 	public function auth_request( $path = '', $request_args = array(), $method = 'GET' ) {
 
+		$this->method = $method;
+
 		if ( ! ( $token_data = $this->get_url_access_token_data() ) ) {
 			$url = $this->get_authorization_url();
 			if ( is_wp_error( $url ) ) {
@@ -200,15 +213,15 @@ class WDS_WP_JSON_API_Connect {
 
 		$this->endpoint_url = $this->json_url( $path );
 		$request_args       = array_merge( (array) $token_data, $request_args );
-		$oauth_args         = $this->request_args( $request_args, $method );
+		$oauth_args         = $this->request_args( $request_args );
 
-		$args = in_array( $method, array( 'GET', 'HEAD', 'DELETE' ), true )
+		$args = in_array( $this->method, array( 'GET', 'HEAD', 'DELETE' ), true )
 			? array(
 				'headers' => array(
 					'Authorization' => 'OAuth '. $this->authorize_header_string( $oauth_args ),
 				)
 			)
-			: array( 'method' => $method, 'body' => $oauth_args );
+			: array( 'method' => $this->method, 'body' => $oauth_args );
 
 		$response           = wp_remote_request( $this->endpoint_url, $args );
 		$body               = wp_remote_retrieve_body( $response );
@@ -285,7 +298,7 @@ class WDS_WP_JSON_API_Connect {
 	 *
 	 * @return array       Request arguments array
 	 */
-	function request_args( $header_args = array(), $method = 'GET' ) {
+	function request_args( $header_args = array() ) {
 		// Set our oauth data
 		$this->request_args = wp_parse_args( $header_args, array(
 			'oauth_consumer_key'     => $this->args['consumer_key'],
@@ -295,10 +308,10 @@ class WDS_WP_JSON_API_Connect {
 		) );
 
 		// create our nonce
-		$this->request_args['oauth_nonce'] = wp_create_nonce( md5( serialize( array_merge( array( 'method' => $method ), $this->request_args ) ) ) );
+		$this->request_args['oauth_nonce'] = wp_create_nonce( md5( serialize( array_merge( array( 'method' => $this->method ), $this->request_args ) ) ) );
 
 		// create our unique oauth signature
-		$this->request_args['oauth_signature'] = $this->oauth_signature( $this->request_args, $method );
+		$this->request_args['oauth_signature'] = $this->oauth_signature( $this->request_args, $this->method );
 
 		return $this->request_args;
 	}
@@ -310,7 +323,7 @@ class WDS_WP_JSON_API_Connect {
 	 *
 	 * @return string Unique Oauth signature
 	 */
-	function oauth_signature( $args, $method = 'GET' ) {
+	function oauth_signature( $args ) {
 		if ( isset( $args['oauth_signature'] ) ) {
 			unset( $args['oauth_signature'] );
 		}
@@ -325,7 +338,7 @@ class WDS_WP_JSON_API_Connect {
 
 		$query_string = $this->create_signature_string( $args );
 
-		$string_to_sign = $method . '&' . rawurlencode( $this->endpoint_url ) . '&' . $query_string;
+		$string_to_sign = $this->method . '&' . rawurlencode( $this->endpoint_url ) . '&' . $query_string;
 
 		$this->args['oauth_token_secret'] = array_key_exists( 'oauth_token_secret', $args )
 			? $args['oauth_token_secret']
@@ -471,6 +484,7 @@ class WDS_WP_JSON_API_Connect {
 			return $this->json_desc;
 		}
 
+		$this->method = 'GET';
 		$response = wp_remote_get( $this->args['json_url'] );
 		$body = wp_remote_retrieve_body( $response );
 
@@ -490,7 +504,6 @@ class WDS_WP_JSON_API_Connect {
 				error_log( 'request response: '. print_r( $response, true ) );
 				// throw new Exception( $error_message );
 			}
-
 		}
 
 		$this->json_desc = $body && ( $json = $this->is_json( $body ) ) ? $json : false;
@@ -533,6 +546,8 @@ class WDS_WP_JSON_API_Connect {
 			return $this->token_response;
 		}
 
+		$this->method = 'POST';
+
 		if ( ! ( $this->endpoint_url = $this->request_token_url() ) ) {
 			return false;
 		}
@@ -541,10 +556,11 @@ class WDS_WP_JSON_API_Connect {
 			return $this->endpoint_url;
 		}
 
-		$response = wp_remote_post( esc_url( $this->endpoint_url ), array( 'body' => $this->request_args() ) );
+		$args     = array( 'body' => $this->request_args() );
+		$response = wp_remote_post( esc_url( $this->endpoint_url ), $args );
 
 		if ( ! isset( $response['response']['code'] ) || 200 != $response['response']['code'] ) {
-			return new WP_Error( 'wp_json_api_request_token_error', sprintf( __( 'There was an error retrieving the token from %s.', 'WDS_WP_JSON_API_Connect' ), $this->endpoint_url ), $response );
+			return new WP_Error( 'wp_json_api_request_token_error', sprintf( __( 'There was an error retrieving the token from %s.', 'WDS_WP_JSON_API_Connect' ), $this->endpoint_url ), array( 'response' => $response, 'request_args' => $args ) );
 		}
 
 		$body = wp_remote_retrieve_body( $response );
@@ -567,6 +583,7 @@ class WDS_WP_JSON_API_Connect {
 	 * @return array|false Array of updated token data or false
 	 */
 	public function store_token_and_secret( $args ) {
+		$this->method = 'POST';
 		if ( ! ( $this->endpoint_url = $this->request_access_url() ) ) {
 			return false;
 		}
