@@ -543,6 +543,10 @@ class WDS_WP_JSON_API_Connect {
 
 		$response = wp_remote_post( esc_url( $this->endpoint_url ), array( 'body' => $this->request_args() ) );
 
+		if ( ! isset( $response['response']['code'] ) || 200 != $response['response']['code'] ) {
+			return new WP_Error( 'wp_json_api_request_token_error', sprintf( __( 'There was an error retrieving the token from %s.', 'WDS_WP_JSON_API_Connect' ), $this->endpoint_url ), $response );
+		}
+
 		$body = wp_remote_retrieve_body( $response );
 		if ( ! $body ) {
 			return new WP_Error( 'wp_json_api_request_token_error', sprintf( __( 'Could not retrive body from %s.', 'WDS_WP_JSON_API_Connect' ), $this->endpoint_url ) );
