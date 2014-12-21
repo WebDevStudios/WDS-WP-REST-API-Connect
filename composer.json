@@ -1,5 +1,5 @@
 {
-    "name": "webdevstudios/WP-JSON-API-Connect",
+    "name": "webdevstudios/wds-wp-json-api-connect",
     "description": "Helper class for connecting to the WordPress JSON API via OAuth.",
     "license": "GPL-2.0+",
     "authors": [
