@@ -1,0 +1,22 @@
+{
+    "name": "webdevstudios/WP-JSON-API-Connect",
+    "description": "Helper class for connecting to the WordPress JSON API via OAuth.",
+    "license": "GPL-2.0+",
+    "authors": [
+        {
+            "name": "WebDevStudios",
+            "email": "contact@webdevstudios.com",
+            "homepage": "https://github.com/WebDevStudios",
+            "role": "Developer"
+        }
+    ],
+    "keywords": ["wordpress", "wp-api", "json" ],
+    "homepage": "https://github.com/WebDevStudios/WDS-WP-JSON-API-Connect2",
+    "support": {
+        "issues": "https://github.com/WebDevStudios/WDS-WP-JSON-API-Connect/issues",
+        "source": "https://github.com/WebDevStudios/WDS-WP-JSON-API-Connect"
+    },
+    "require": {
+        "php": ">5.3"
+    }
+}
