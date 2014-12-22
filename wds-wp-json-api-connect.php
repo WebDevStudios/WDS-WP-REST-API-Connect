@@ -799,7 +799,7 @@ class WDS_WP_JSON_API_Connect {
 	 * @return boolean|array  Decoded JSON object or false
 	 */
 	function is_json( $string ) {
-		$json = is_string( $string ) ? json_decode( $string );
+		$json = is_string( $string ) ? json_decode( $string ) : false;
 		return $json && ( is_object( $json ) || is_array( $json ) )
 			? $json
 			: false;
