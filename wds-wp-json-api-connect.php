@@ -63,7 +63,7 @@ class WDS_WP_JSON_API_Connect {
 	/**
 	 * Retrieved token for authorization URL
 	 *
-	 * @var array
+	 * @var mixed
 	 */
 	protected $token_response = null;
 
@@ -126,9 +126,9 @@ class WDS_WP_JSON_API_Connect {
 	 * @since  0.1.0
 	 *
 	 * @param  array $callback_query_params Additional query paramaters
-	 * @param  array $return_url          URL to return to when authorized.
+	 * @param  array $return_url   URL to return to when authorized.
 	 *
-	 * @return string|false|WP_Error      Authorization Request URL
+	 * @return mixed               Authorization Request URL or error
 	 */
 	public function get_authorization_url( $callback_query_params = array(), $return_url = '' ) {
 		if ( ! ( $request_authorize_url = $this->request_authorize_url() ) ) {
@@ -341,6 +341,7 @@ class WDS_WP_JSON_API_Connect {
 		}
 
 		$args = $this->normalize_and_sort( $args, __( 'Signature', 'WDS_WP_JSON_API_Connect' ) );
+
 		if ( is_wp_error( $args ) ) {
 			return $args;
 		}
@@ -439,9 +440,10 @@ class WDS_WP_JSON_API_Connect {
 	protected function authorize_header_string( $oauth ) {
 		$header = '';
 
-		$args = $this->normalize_and_sort( $args, __( 'Header String', 'WDS_WP_JSON_API_Connect' ) );
-		if ( is_wp_error( $args ) ) {
-			return $args;
+		$oauth = $this->normalize_and_sort( $oauth, __( 'Header String', 'WDS_WP_JSON_API_Connect' ) );
+
+		if ( is_wp_error( $oauth ) ) {
+			return $oauth;
 		}
 
 		$header .= implode( ', ', $this->join_with_equals_sign( $oauth ) );
@@ -504,7 +506,7 @@ class WDS_WP_JSON_API_Connect {
 	 *
 	 * @since  0.1.0
 	 *
-	 * @return object|false  Description object for json_url
+	 * @return mixed  Description object for json_url
 	 */
 	public function cache_api_description_for_json_url() {
 		$transient_id = 'apiconnect_desc_'. $this->key;
@@ -567,7 +569,7 @@ class WDS_WP_JSON_API_Connect {
 	 *
 	 * @since  0.1.0
 	 *
-	 * @return array|WP_Error Array of token data or error
+	 * @return mixed Array of token data or error
 	 */
 	public function get_token() {
 		if ( $this->token_response ) {
@@ -797,7 +799,8 @@ class WDS_WP_JSON_API_Connect {
 	 * @return boolean|array  Decoded JSON object or false
 	 */
 	function is_json( $string ) {
-		return is_string( $string ) && ( $json = json_decode( $string ) ) && ( is_object( $json ) || is_array( $json ) )
+		$json = is_string( $string ) ? json_decode( $string );
+		return $json && ( is_object( $json ) || is_array( $json ) )
 			? $json
 			: false;
 	}
