@@ -14,14 +14,14 @@
  *
  * @author  Justin Sternberg <justin@webdevstudios.com>
  * @package WDS_WP_JSON_API_Connect
- * @version 0.1.1
+ * @version 0.1.2
  */
 class WDS_WP_JSON_API_Connect {
 
 	/**
 	 * JSON description object from the json_url
 	 *
-	 * @var JSON object
+	 * @var mixed
 	 */
 	protected $json_desc = null;
 
@@ -128,7 +128,7 @@ class WDS_WP_JSON_API_Connect {
 	 * @param  array $callback_query_params Additional query paramaters
 	 * @param  array $return_url          URL to return to when authorized.
 	 *
-	 * @return string|false                 Authorization Request URL
+	 * @return string|false|WP_Error      Authorization Request URL
 	 */
 	public function get_authorization_url( $callback_query_params = array(), $return_url = '' ) {
 		if ( ! ( $request_authorize_url = $this->request_authorize_url() ) ) {
@@ -144,7 +144,7 @@ class WDS_WP_JSON_API_Connect {
 			return $token;
 		}
 
-		$token_array = $this->parse_str( $token );
+		$token_array = is_string( $token ) ? $this->parse_str( $token ) : (array) $token;
 
 		if ( ! isset( $token_array['oauth_token'] ) ) {
 			return new WP_Error( 'wp_json_api_get_token_error', sprintf( __( 'There was an error retrieving the token from %s.', 'WDS_WP_JSON_API_Connect' ), $this->endpoint_url ), array( 'token' => $token, 'request_authorize_url' => $request_authorize_url, 'method' => $this->get_method() ) );
@@ -236,7 +236,7 @@ class WDS_WP_JSON_API_Connect {
 		$this->response = wp_remote_request( $this->endpoint_url, $args );
 		$body           = wp_remote_retrieve_body( $this->response );
 
-		return $body && ( $json = $this->is_json( $body ) ) ? $json : $body;
+		return $this->get_json_if_json( $body );
 	}
 
 	/**
@@ -260,7 +260,7 @@ class WDS_WP_JSON_API_Connect {
 	 *
 	 * @since  0.1.0
 	 *
-	 * @return string  Request URL
+	 * @return mixed Request URL or error
 	 */
 	function request_token_url() {
 		return $this->retrieve_and_set_var_from_description( 'request_token_url', 'request' );
@@ -271,7 +271,7 @@ class WDS_WP_JSON_API_Connect {
 	 *
 	 * @since  0.1.0
 	 *
-	 * @return string  Authorization URL
+	 * @return mixed Authorization URL or error
 	 */
 	function request_authorize_url() {
 		return $this->retrieve_and_set_var_from_description( 'request_authorize_url', 'authorize' );
@@ -282,7 +282,7 @@ class WDS_WP_JSON_API_Connect {
 	 *
 	 * @since  0.1.0
 	 *
-	 * @return string  Access URL
+	 * @return mixed Access URL or error
 	 */
 	function request_access_url() {
 		return $this->retrieve_and_set_var_from_description( 'request_access_url', 'access' );
@@ -293,7 +293,7 @@ class WDS_WP_JSON_API_Connect {
 	 *
 	 * @since  0.1.0
 	 *
-	 * @return object  Authentication object
+	 * @return mixed Authentication object
 	 */
 	function auth_object() {
 		return $this->retrieve_and_set_var_from_description( 'auth_object' );
@@ -302,7 +302,7 @@ class WDS_WP_JSON_API_Connect {
 	/**
 	 * Builds request's 'OAuth' authentication arguments
 	 *
-	 * @since  1.0.0
+	 * @since  0.1.0
 	 *
 	 * @param  array $args Optional additional arguments
 	 *
@@ -323,7 +323,7 @@ class WDS_WP_JSON_API_Connect {
 		$this->request_args['oauth_nonce'] = wp_create_nonce( md5( serialize( array_merge( array( 'method' => $this->get_method() ), $this->request_args ) ) ) );
 
 		// create our unique oauth signature
-		$this->request_args['oauth_signature'] = $this->oauth_signature( $this->request_args, $this->get_method() );
+		$this->request_args['oauth_signature'] = $this->oauth_signature( $this->request_args );
 
 		return $this->request_args;
 	}
@@ -331,21 +331,18 @@ class WDS_WP_JSON_API_Connect {
 	/**
 	 * Creates an oauth signature for the api call.
 	 *
-	 * @since  1.0.0
+	 * @since  0.1.0
 	 *
-	 * @return string Unique Oauth signature
+	 * @return string|WP_Error Unique Oauth signature or error
 	 */
 	function oauth_signature( $args ) {
 		if ( isset( $args['oauth_signature'] ) ) {
 			unset( $args['oauth_signature'] );
 		}
 
-		// normalize parameter key/values
-		array_walk_recursive( $args, array( $this, 'normalize_parameters' ) );
-
-		// sort parameters
-		if ( ! uksort( $args, 'strcmp' ) ) {
-			return new WP_Error( 'json_oauth1_failed_parameter_sort', __( 'Invalid Signature - failed to sort parameters' ), array( 'status' => 401 ) );
+		$args = $this->normalize_and_sort( $args, __( 'Signature', 'WDS_WP_JSON_API_Connect' ) );
+		if ( is_wp_error( $args ) ) {
+			return $args;
 		}
 
 		$query_string = $this->create_signature_string( $args );
@@ -370,6 +367,28 @@ class WDS_WP_JSON_API_Connect {
 	 */
 	public function create_signature_string( $params ) {
 		return implode( '%26', $this->join_with_equals_sign( $params ) ); // join with ampersand
+	}
+
+	/**
+	 * Normalize array keys and values and then sort array
+	 *
+	 * @since  0.1.2
+	 *
+	 * @param  array  $args  Array to be normalized and sorted
+	 * @param  string $label "Invalid X" Label for WP_Error message.
+	 *
+	 * @return array|WP_Error Modified array or error if failed to sort.
+	 */
+	public function normalize_and_sort( $args, $label ) {
+		// normalize parameter key/values
+		array_walk_recursive( $args, array( $this, 'normalize_parameters' ) );
+
+		// sort parameters
+		if ( ! uksort( $args, 'strcmp' ) ) {
+			return new WP_Error( 'json_oauth1_failed_parameter_sort', sprintf( __( 'Invalid %s - failed to sort parameters', 'WDS_WP_JSON_API_Connect' ), $label ), array( 'status' => 401 ) );
+		}
+
+		return $args;
 	}
 
 	/**
@@ -413,20 +432,16 @@ class WDS_WP_JSON_API_Connect {
 
 	/**
 	 * Creates a string out of the header arguments array
-	 * @since  1.0.0
-	 * @param  array  $params Header arguments array
-	 * @return string         Header arguments array in string format
+	 * @since  0.1.0
+	 * @param  array  $params  Header arguments array
+	 * @return string|WP_Error Header arguments array in string format or error
 	 */
 	protected function authorize_header_string( $oauth ) {
 		$header = '';
-		$values = array();
 
-		// normalize parameter key/values
-		array_walk_recursive( $oauth, array( $this, 'normalize_parameters' ) );
-
-		// sort parameters
-		if ( ! uksort( $oauth, 'strcmp' ) ) {
-			return new WP_Error( 'json_oauth1_failed_parameter_sort', __( 'Invalid Header String - failed to sort parameters', 'WDS_WP_JSON_API_Connect' ), array( 'status' => 401 ) );
+		$args = $this->normalize_and_sort( $args, __( 'Header String', 'WDS_WP_JSON_API_Connect' ) );
+		if ( is_wp_error( $args ) ) {
+			return $args;
 		}
 
 		$header .= implode( ', ', $this->join_with_equals_sign( $oauth ) );
@@ -489,7 +504,7 @@ class WDS_WP_JSON_API_Connect {
 	 *
 	 * @since  0.1.0
 	 *
-	 * @return object  Description object for json_url
+	 * @return object|false  Description object for json_url
 	 */
 	public function cache_api_description_for_json_url() {
 		$transient_id = 'apiconnect_desc_'. $this->key;
@@ -519,7 +534,7 @@ class WDS_WP_JSON_API_Connect {
 			}
 		}
 
-		$this->json_desc = $body && ( $json = $this->is_json( $body ) ) ? $json : false;
+		$this->json_desc = $this->is_json( $body );
 
 		if ( $this->json_desc ) {
 			set_transient( $transient_id, $this->json_desc, HOUR_IN_SECONDS );
@@ -552,7 +567,7 @@ class WDS_WP_JSON_API_Connect {
 	 *
 	 * @since  0.1.0
 	 *
-	 * @return array Array of token data
+	 * @return array|WP_Error Array of token data or error
 	 */
 	public function get_token() {
 		if ( $this->token_response ) {
@@ -562,7 +577,7 @@ class WDS_WP_JSON_API_Connect {
 		$this->set_method( 'POST' );
 
 		if ( ! ( $this->endpoint_url = $this->request_token_url() ) ) {
-			return false;
+			return new WP_Error( 'wp_json_api_request_token_error', __( 'Could not retrieve request token url from api description.', 'WDS_WP_JSON_API_Connect' ) );
 		}
 
 		if ( is_wp_error( $this->endpoint_url ) ) {
@@ -585,7 +600,7 @@ class WDS_WP_JSON_API_Connect {
 			return new WP_Error( 'wp_json_api_request_token_error', sprintf( __( 'Could not retrive body from %s.', 'WDS_WP_JSON_API_Connect' ), $this->endpoint_url ) );
 		}
 
-		$this->token_response = $body && ( $json = $this->is_json( $body ) ) ? $json : $body;
+		$this->token_response = $this->get_json_if_json( $body );
 
 		return $this->token_response;
 	}
@@ -656,7 +671,7 @@ class WDS_WP_JSON_API_Connect {
 	 * @param  string  $key    Key for secondary array
 	 * @param  boolean $force  Force a new call to get_option
 	 *
-	 * @return mixex           Value of option requested
+	 * @return mixed           Value of option requested
 	 */
 	public function get_option( $option, $key = '', $force = false ) {
 
@@ -756,6 +771,20 @@ class WDS_WP_JSON_API_Connect {
 		$array = array();
 		parse_str( $string, $array );
 		return (array) $array;
+	}
+
+	/**
+	 * Determines if a string is JSON, and if so, decodes it and returns it. Else returns unchanged body object.
+	 *
+	 * @since  0.1.2
+	 *
+	 * @param  string $body   HTTP retrieved body
+	 *
+	 * @return mixed  Decoded JSON object or unchanged body
+	 */
+	function get_json_if_json( $body ) {
+		$json = $body ? $this->is_json( $body ) : false;
+		return $body && $json ? $json : $body;
 	}
 
 	/**
