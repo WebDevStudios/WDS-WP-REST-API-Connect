@@ -1,4 +1,4 @@
-WDS WP JSON API Connect
+WDS WP JSON API Connect [![Scrutinizer Code Quality](http://img.shields.io/scrutinizer/g/WebDevStudios/WDS-WP-JSON-API-Connect.svg?style=flat)]()
 =========
 
 A tool for connecting to the [JSON-based REST API for WordPress](https://github.com/WP-API/WP-API) via [OAuth 1.0a](https://github.com/WP-API/OAuth1).
