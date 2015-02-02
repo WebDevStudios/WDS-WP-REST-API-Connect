@@ -1,7 +1,7 @@
 <?php
 
 if ( ! class_exists( 'WDS_WP_JSON_API_Connect' ) ) {
-	require_once( 'WDS_WP_JSON_API_Connect.php' );
+	require_once( 'wds-wp-json-api-connect.php' );
 }
 
 /**
