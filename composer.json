@@ -19,7 +19,7 @@
     "require": {
         "php": ">5.3"
     },
-    "autoload: {
+    "autoload": {
         "classmap": ["WDS_WP_JSON_API_Connect"]
     }
 }
