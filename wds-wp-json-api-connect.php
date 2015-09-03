@@ -1,7 +1,7 @@
 <?php
 
 if ( ! class_exists( 'WDS_WP_JSON_API_Connect' ) ) :
-	
+
 	/**
 	 * Connect to the WordPress JSON API using WordPress APIs
 	 *
@@ -96,6 +96,13 @@ if ( ! class_exists( 'WDS_WP_JSON_API_Connect' ) ) :
 		 * @var object
 		 */
 		protected $response = null;
+
+		/**
+		 * HTTP response code
+		 *
+		 * @var int
+		 */
+		protected $response_code = 0;
 
 		/**
 		 * Initate our connect object
@@ -235,8 +242,9 @@ if ( ! class_exists( 'WDS_WP_JSON_API_Connect' ) ) :
 				)
 				: array( 'method' => $this->get_method(), 'body' => $oauth_args );
 
-			$this->response = wp_remote_request( $this->endpoint_url, $args );
-			$body           = wp_remote_retrieve_body( $this->response );
+			$this->response      = wp_remote_request( $this->endpoint_url, $args );
+			$this->response_code = isset( $this->response['response']['code'] ) ? $this->response['response']['code'] : 0;
+			$body                = wp_remote_retrieve_body( $this->response );
 
 			return $this->get_json_if_json( $body );
 		}
@@ -868,6 +876,7 @@ if ( ! class_exists( 'WDS_WP_JSON_API_Connect' ) ) :
 				case 'args':
 				case 'option_key':
 				case 'response':
+				case 'response_code':
 				case 'method':
 					return $this->{$field};
 				case 'json_url':
