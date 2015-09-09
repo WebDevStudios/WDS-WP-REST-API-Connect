@@ -243,7 +243,9 @@ if ( ! class_exists( 'WDS_WP_JSON_API_Connect' ) ) :
 				: array( 'method' => $this->get_method(), 'body' => $oauth_args );
 
 			$this->response      = wp_remote_request( $this->endpoint_url, $args );
-			$this->response_code = isset( $this->response['response']['code'] ) ? $this->response['response']['code'] : 0;
+			$this->response_code = ! is_wp_error( $this->response ) && isset( $this->response['response']['code'] )
+				? $this->response['response']['code']
+				: 0;
 			$body                = wp_remote_retrieve_body( $this->response );
 
 			return $this->get_json_if_json( $body );
