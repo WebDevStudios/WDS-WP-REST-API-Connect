@@ -119,6 +119,12 @@ if ( ! class_exists( 'WDS_WP_JSON_API_Connect' ) ) :
 				'oauth_token_secret' => '',
 			) );
 
+			// Add support for WDS Require login fields
+			if ( class_exists( 'WDS_Network_Require_Login' ) ) {
+				$this->args['require_login_key']   = '';
+				$this->args['require_login_token'] = '';
+			}
+
 			$this->key        = md5( sanitize_title( $this->args['json_url'] ) );
 			$this->option_key = 'apiconnect_' . $this->key;
 
@@ -527,7 +533,15 @@ if ( ! class_exists( 'WDS_WP_JSON_API_Connect' ) ) :
 				return $this->json_desc;
 			}
 
-			$this->response = wp_remote_get( $this->args['json_url'] );
+			$get_args = array(
+				'headers' => array(),
+			);
+
+			if ( strlen( $this->require_login_key ) && strlen( $this->require_login_token ) ) {
+				$get_args['headers'][ $this->require_login_key ] = $this->require_login_token;
+			}
+
+			$this->response = wp_remote_get( $this->args['json_url'], $get_args );
 			$body = wp_remote_retrieve_body( $this->response );
 
 			if ( ! $body || ( isset( $this->response['response']['code'] ) && 200 != $this->response['response']['code'] ) ) {
@@ -884,6 +898,8 @@ if ( ! class_exists( 'WDS_WP_JSON_API_Connect' ) ) :
 				case 'json_url':
 				case 'consumer_key':
 				case 'consumer_secret':
+				case 'require_login_key':
+				case 'require_login_token':
 					return $this->args[ $field ];
 				default:
 					throw new Exception( 'Invalid property: ' . $field );
