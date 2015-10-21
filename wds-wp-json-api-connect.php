@@ -113,17 +113,13 @@ if ( ! class_exists( 'WDS_WP_JSON_API_Connect' ) ) :
 		 */
 		public function __construct( $args = array() ) {
 			$this->args = wp_parse_args( $args, array(
-				'consumer_key'       => '',
-				'consumer_secret'    => '',
-				'json_url'           => '',
-				'oauth_token_secret' => '',
+				'consumer_key'        => '',
+				'consumer_secret'     => '',
+				'json_url'            => '',
+				'oauth_token_secret'  => '',
+				'require_login_key'   => '',
+				'require_login_token' => '',
 			) );
-
-			// Add support for WDS Require login fields
-			if ( class_exists( 'WDS_Network_Require_Login' ) ) {
-				$this->args['require_login_key']   = '';
-				$this->args['require_login_token'] = '';
-			}
 
 			$this->key        = md5( sanitize_title( $this->args['json_url'] ) );
 			$this->option_key = 'apiconnect_' . $this->key;
