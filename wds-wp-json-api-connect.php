@@ -121,7 +121,7 @@ if ( ! class_exists( 'WDS_WP_JSON_API_Connect' ) ) :
 			) );
 
 			$this->key        = md5( sanitize_title( $this->args['json_url'] ) );
-			$this->option_key = 'apiconnect_' . $this->key;
+			$this->option_key = 'apiconnect_' . md5( serialize( $this->args ) );
 
 			if ( isset( $_REQUEST['oauth_authorize_url'], $_REQUEST['oauth_token'] ) ) {
 				if ( md5( sanitize_title( $_REQUEST['oauth_authorize_url'] ) ) == $this->key ) {
@@ -522,7 +522,7 @@ if ( ! class_exists( 'WDS_WP_JSON_API_Connect' ) ) :
 		 * @return mixed  Description object for json_url
 		 */
 		public function cache_api_description_for_json_url() {
-			$transient_id = 'apiconnect_desc_'. $this->key;
+			$transient_id = 'apiconnect_desc_'. $this->option_key;
 
 			if ( $this->json_desc = get_transient( $transient_id ) ) {
 				return $this->json_desc;
