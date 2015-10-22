@@ -117,6 +117,8 @@ if ( ! class_exists( 'WDS_WP_JSON_API_Connect' ) ) :
 				'consumer_secret'    => '',
 				'json_url'           => '',
 				'oauth_token_secret' => '',
+				'header_key'         => '',
+				'header_token'       => '',
 			) );
 
 			$this->key        = md5( sanitize_title( $this->args['json_url'] ) );
@@ -527,7 +529,15 @@ if ( ! class_exists( 'WDS_WP_JSON_API_Connect' ) ) :
 				return $this->json_desc;
 			}
 
-			$this->response = wp_remote_get( $this->args['json_url'] );
+			$get_args = array(
+				'headers' => array(),
+			);
+
+			if ( strlen( $this->args['header_key'] ) && strlen( $this->args['header_token'] ) ) {
+				$get_args['headers'][ $this->args['header_key'] ] = $this->args['header_token'];
+			}
+
+			$this->response = wp_remote_get( $this->args['json_url'], $get_args );
 			$body = wp_remote_retrieve_body( $this->response );
 
 			if ( ! $body || ( isset( $this->response['response']['code'] ) && 200 != $this->response['response']['code'] ) ) {
@@ -884,6 +894,8 @@ if ( ! class_exists( 'WDS_WP_JSON_API_Connect' ) ) :
 				case 'json_url':
 				case 'consumer_key':
 				case 'consumer_secret':
+				case 'header_key':
+				case 'header_token':
 					return $this->args[ $field ];
 				default:
 					throw new Exception( 'Invalid property: ' . $field );
