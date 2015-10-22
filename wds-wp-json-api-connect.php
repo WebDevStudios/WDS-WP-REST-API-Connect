@@ -894,6 +894,7 @@ if ( ! class_exists( 'WDS_WP_JSON_API_Connect' ) ) :
 				case 'json_url':
 				case 'consumer_key':
 				case 'consumer_secret':
+				case 'headers':
 					return $this->args[ $field ];
 				default:
 					throw new Exception( 'Invalid property: ' . $field );
