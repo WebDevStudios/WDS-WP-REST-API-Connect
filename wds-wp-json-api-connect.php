@@ -117,10 +117,11 @@ if ( ! class_exists( 'WDS_WP_JSON_API_Connect' ) ) :
 				'consumer_secret'    => '',
 				'json_url'           => '',
 				'oauth_token_secret' => '',
+				'headers'            => '',
 			) );
 
 			$this->key        = md5( sanitize_title( $this->args['json_url'] ) );
-			$this->option_key = 'apiconnect_' . $this->key;
+			$this->option_key = 'apiconnect_' . md5( serialize( $this->args ) );
 
 			if ( isset( $_REQUEST['oauth_authorize_url'], $_REQUEST['oauth_token'] ) ) {
 				if ( md5( sanitize_title( $_REQUEST['oauth_authorize_url'] ) ) == $this->key ) {
@@ -233,14 +234,14 @@ if ( ! class_exists( 'WDS_WP_JSON_API_Connect' ) ) :
 			$this->endpoint_url = $this->json_url( $path );
 			$request_args       = array_merge( (array) $token_data, $request_args );
 			$oauth_args         = $this->request_args( $request_args );
+			$args               = array( 'headers' => $this->args['headers'] );
 
-			$args = in_array( $this->get_method(), array( 'GET', 'HEAD', 'DELETE' ), true )
-				? array(
-					'headers' => array(
-						'Authorization' => 'OAuth '. $this->authorize_header_string( $oauth_args ),
-					)
-				)
-				: array( 'method' => $this->get_method(), 'body' => $oauth_args );
+			if ( in_array( $this->get_method(), array( 'GET', 'HEAD', 'DELETE' ), true ) ) {
+				$args['headers']['Authorization'] = 'OAuth '. $this->authorize_header_string( $oauth_args );
+			} else {
+				$args['method'] = $this->get_method();
+				$args['body']   = $oauth_args;
+			}
 
 			$this->response      = wp_remote_request( $this->endpoint_url, $args );
 			$this->response_code = ! is_wp_error( $this->response ) && isset( $this->response['response']['code'] )
@@ -521,36 +522,40 @@ if ( ! class_exists( 'WDS_WP_JSON_API_Connect' ) ) :
 		 * @return mixed  Description object for json_url
 		 */
 		public function cache_api_description_for_json_url() {
-			$transient_id = 'apiconnect_desc_'. $this->key;
+			$transient_id = 'apiconnect_desc_'. $this->option_key;
 
-			if ( $this->json_desc = get_transient( $transient_id ) ) {
+			if ( ! isset( $_GET['delete-trans'] ) && $this->json_desc = get_transient( $transient_id ) ) {
 				return $this->json_desc;
 			}
 
-			$this->response = wp_remote_get( $this->args['json_url'] );
-			$body = wp_remote_retrieve_body( $this->response );
+			$this->response = wp_remote_get( $this->args['json_url'], array(
+				'headers' => $this->args['headers'],
+			) );
+
+			$body  = wp_remote_retrieve_body( $this->response );
+			$error = false;
 
 			if ( ! $body || ( isset( $this->response['response']['code'] ) && 200 != $this->response['response']['code'] ) ) {
-				$error_message = sprintf( __( 'Could not retrive body from URL: "%s"', 'WDS_WP_JSON_API_Connect' ), $this->args['json_url'] );
+				$error = sprintf( __( 'Could not retrive body from URL: "%s"', 'WDS_WP_JSON_API_Connect' ), $this->args['json_url'] );
 
 				delete_option( 'wp_json_api_connect_error' );
 				add_option( 'wp_json_api_connect_error', array(
-					'message'          => $error_message,
+					'message'          => $error,
 					'request_args'     => print_r( $this->args, true ),
 					'request_response' => print_r( $this->response, true ),
 				), '', 'no' );
 
 				if ( defined( 'WP_DEBUG' ) ) {
-					error_log( 'error: '. $error_message );
+					error_log( 'error: '. $error );
 					error_log( 'request args: '. print_r( $this->args, true ) );
 					error_log( 'request response: '. print_r( $this->response, true ) );
-					// throw new Exception( $error_message );
+					// throw new Exception( $error );
 				}
 			}
 
 			$this->json_desc = $this->is_json( $body );
 
-			if ( $this->json_desc ) {
+			if ( ! $error && $this->json_desc ) {
 				set_transient( $transient_id, $this->json_desc, HOUR_IN_SECONDS );
 			}
 
@@ -598,7 +603,10 @@ if ( ! class_exists( 'WDS_WP_JSON_API_Connect' ) ) :
 				return $this->endpoint_url;
 			}
 
-			$args     = array( 'body' => $this->request_args() );
+			$args = array(
+				'headers' => $this->args['headers'],
+				'body'    => $this->request_args(),
+			);
 			$this->response = wp_remote_post( esc_url( $this->endpoint_url ), $args );
 
 			if ( is_wp_error( $this->response ) ) {
@@ -624,29 +632,31 @@ if ( ! class_exists( 'WDS_WP_JSON_API_Connect' ) ) :
 		 *
 		 * @since  0.1.0
 		 *
-		 * @param  array $args Additional request arguments
+		 * @param  array $request_args Additional request arguments
 		 *
 		 * @return array|false Array of updated token data or false
 		 */
-		public function store_token_and_secret( $args ) {
+		public function store_token_and_secret( $request_args ) {
 			$this->set_method( 'POST' );
 
 			if ( ! ( $this->endpoint_url = $this->request_access_url() ) ) {
 				return false;
 			}
 
-			$args           = $this->request_args( $args );
-			$this->response = wp_remote_post( esc_url( $this->endpoint_url ), array( 'body' => $args ) );
+			$args = array(
+				'headers' => $this->args['headers'],
+				'body'    => $this->request_args( $request_args ),
+			);
+			$this->response = wp_remote_post( esc_url( $this->endpoint_url ), $args );
 			$body           = wp_remote_retrieve_body( $this->response );
 
 			if ( ! isset( $this->response['response']['code'] ) || 200 != $this->response['response']['code'] ) {
 				return;
 			}
 
-			$token_array = array_merge( $args, $this->parse_str( $body ) );
+			$token_array = array_merge( $args['body'], $this->parse_str( $body ) );
 
 			if ( isset( $token_array['oauth_token'], $token_array['oauth_verifier'], $token_array['oauth_token_secret'] ) ) {
-
 				$this->update_url_access_tokens( $token_array );
 			}
 
