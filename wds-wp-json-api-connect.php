@@ -524,7 +524,7 @@ if ( ! class_exists( 'WDS_WP_JSON_API_Connect' ) ) :
 		public function cache_api_description_for_json_url() {
 			$transient_id = 'apiconnect_desc_'. $this->option_key;
 
-			if ( $this->json_desc = get_transient( $transient_id ) ) {
+			if ( ! isset( $_GET['delete-trans'] ) && $this->json_desc = get_transient( $transient_id ) ) {
 				return $this->json_desc;
 			}
 
@@ -532,29 +532,30 @@ if ( ! class_exists( 'WDS_WP_JSON_API_Connect' ) ) :
 				'headers' => $this->args['headers'],
 			) );
 
-			$body = wp_remote_retrieve_body( $this->response );
+			$body  = wp_remote_retrieve_body( $this->response );
+			$error = false;
 
 			if ( ! $body || ( isset( $this->response['response']['code'] ) && 200 != $this->response['response']['code'] ) ) {
-				$error_message = sprintf( __( 'Could not retrive body from URL: "%s"', 'WDS_WP_JSON_API_Connect' ), $this->args['json_url'] );
+				$error = sprintf( __( 'Could not retrive body from URL: "%s"', 'WDS_WP_JSON_API_Connect' ), $this->args['json_url'] );
 
 				delete_option( 'wp_json_api_connect_error' );
 				add_option( 'wp_json_api_connect_error', array(
-					'message'          => $error_message,
+					'message'          => $error,
 					'request_args'     => print_r( $this->args, true ),
 					'request_response' => print_r( $this->response, true ),
 				), '', 'no' );
 
 				if ( defined( 'WP_DEBUG' ) ) {
-					error_log( 'error: '. $error_message );
+					error_log( 'error: '. $error );
 					error_log( 'request args: '. print_r( $this->args, true ) );
 					error_log( 'request response: '. print_r( $this->response, true ) );
-					// throw new Exception( $error_message );
+					// throw new Exception( $error );
 				}
 			}
 
 			$this->json_desc = $this->is_json( $body );
 
-			if ( $this->json_desc ) {
+			if ( ! $error && $this->json_desc ) {
 				set_transient( $transient_id, $this->json_desc, HOUR_IN_SECONDS );
 			}
 
