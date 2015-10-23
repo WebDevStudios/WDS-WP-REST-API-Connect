@@ -1,5 +1,5 @@
 {
-    "name": "webdevstudios/wds-wp-json-api-connect",
+    "name": "webdevstudios/wds-wp-rest-api-connect",
     "description": "Helper class for connecting from one WordPress installation to another via the WordPress JSON API and OAuth.",
     "license": "GPL-2.0+",
     "authors": [
@@ -20,6 +20,6 @@
         "php": ">5.3"
     },
     "autoload": {
-        "classmap": ["WDS_WP_JSON_API_Connect"]
+        "classmap": ["WDS_WP_REST_API_Connect"]
     }
 }

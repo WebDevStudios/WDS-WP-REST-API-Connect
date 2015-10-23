@@ -6,7 +6,7 @@ A tool for connecting to the [JSON-based REST API for WordPress](https://github.
 To get started, you'll need to install both the [WP JSON API plugin](https://github.com/WP-API/WP-API) and the [OAuth plugin](https://github.com/WP-API/OAuth1).
 
 Once installed and activated, you'll need to create a '[Consumer](https://github.com/WP-API/client-cli#step-1-creating-a-consumer)'.
-When you have the Consumer key and secret, you'll create a new WDS_WP_JSON_API_Connect object by passing those credentials along with the JSON API URL:
+When you have the Consumer key and secret, you'll create a new WDS_WP_REST_API_Connect object by passing those credentials along with the JSON API URL:
 ```php
 // Consumer credentials
 $consumer = array(
@@ -14,7 +14,7 @@ $consumer = array(
 	'consumer_secret' => 'YOUR CONSUMER SECRET',
 	'json_url'        => 'JSON API URL OF SITE',
 );
-$api = new WDS_WP_JSON_API_Connect( $consumer );
+$api = new WDS_WP_REST_API_Connect( $consumer );
 ```
 
 You can then use this object to retrieve the authentication request URL, or if you have been authenticated, make requests.
@@ -22,12 +22,10 @@ You can then use this object to retrieve the authentication request URL, or if y
 ```php
 <?php
 
-if ( ! class_exists( 'WDS_WP_JSON_API_Connect' ) ) {
-	require_once( 'wds-wp-json-api-connect.php' );
-}
+require_once( 'wds-wp-rest-api-connect.php' );
 
 /**
- * Example WDS_WP_JSON_API_Connect usage
+ * Example WDS_WP_REST_API_Connect usage
  */
 function wp_json_api_connect_example_test() {
 
@@ -38,7 +36,7 @@ function wp_json_api_connect_example_test() {
 		'json_url'        => 'JSON API URL OF SITE',
 	);
 
-	$api = new WDS_WP_JSON_API_Connect( $consumer );
+	$api = new WDS_WP_REST_API_Connect( $consumer );
 
 	$auth_url = $api->get_authorization_url( array( 'test_api' => $_GET['test_api'] ) );
 
