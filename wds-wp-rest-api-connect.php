@@ -786,13 +786,16 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 		 *
 		 * @return void
 		 */
-		public function update_stored_error( $error ) {
+		public function update_stored_error( $error = '' ) {
 			delete_option( 'wp_rest_api_connect_error' );
-			add_option( 'wp_rest_api_connect_error', array(
-				'message'          => $error,
-				'request_args'     => print_r( $this->args, true ),
-				'request_response' => print_r( $this->response, true ),
-			), '', 'no' );
+
+			if ( ! is_null( $error ) ) {
+				add_option( 'wp_rest_api_connect_error', array(
+					'message'          => $error,
+					'request_args'     => print_r( $this->args, true ),
+					'request_response' => print_r( $this->response, true ),
+				), '', 'no' );
+			}
 		}
 
 		/**
