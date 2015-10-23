@@ -157,7 +157,7 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 			$token_array = is_string( $token ) ? $this->parse_str( $token ) : (array) $token;
 
 			if ( ! isset( $token_array['oauth_token'] ) ) {
-				return new WP_Error( 'wp_json_api_get_token_error', sprintf( __( 'There was an error retrieving the token from %s.', 'wds-wp-rest-api-connect' ), $this->endpoint_url ), array( 'token' => $token, 'request_authorize_url' => $request_authorize_url, 'method' => $this->get_method() ) );
+				return new WP_Error( 'wp_rest_api_get_token_error', sprintf( __( 'There was an error retrieving the token from %s.', 'wds-wp-rest-api-connect' ), $this->endpoint_url ), array( 'token' => $token, 'request_authorize_url' => $request_authorize_url, 'method' => $this->get_method() ) );
 			}
 
 			$callback_query_params = array_merge( array(
@@ -224,7 +224,7 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 				if ( is_wp_error( $url ) ) {
 					return $url;
 				}
-				return new WP_Error( 'wp_json_api_missing_token_data', sprintf( __( 'Missing token data. Try <a href="%s">reauthenticating</a>.', 'wds-wp-rest-api-connect' ), $url ), $url );
+				return new WP_Error( 'wp_rest_api_missing_token_data', sprintf( __( 'Missing token data. Try <a href="%s">reauthenticating</a>.', 'wds-wp-rest-api-connect' ), $url ), $url );
 			}
 
 			if ( ! $path ) {
@@ -399,7 +399,7 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 
 			// sort parameters
 			if ( ! uksort( $args, 'strcmp' ) ) {
-				return new WP_Error( 'json_oauth1_failed_parameter_sort', sprintf( __( 'Invalid %s - failed to sort parameters', 'wds-wp-rest-api-connect' ), $label ), array( 'status' => 401 ) );
+				return new WP_Error( 'rest_oauth1_failed_parameter_sort', sprintf( __( 'Invalid %s - failed to sort parameters', 'wds-wp-rest-api-connect' ), $label ), array( 'status' => 401 ) );
 			}
 
 			return $args;
@@ -591,7 +591,7 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 			$this->set_method( 'POST' );
 
 			if ( ! ( $this->endpoint_url = $this->request_token_url() ) ) {
-				return new WP_Error( 'wp_json_api_request_token_error', __( 'Could not retrieve request token url from api description.', 'wds-wp-rest-api-connect' ) );
+				return new WP_Error( 'wp_rest_api_request_token_error', __( 'Could not retrieve request token url from api description.', 'wds-wp-rest-api-connect' ) );
 			}
 
 			if ( is_wp_error( $this->endpoint_url ) ) {
@@ -609,12 +609,12 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 			}
 
 			if ( ! isset( $this->response['response']['code'] ) || 200 != $this->response['response']['code'] ) {
-				return new WP_Error( 'wp_json_api_request_token_error', sprintf( __( 'There was an error retrieving the token from %s.', 'wds-wp-rest-api-connect' ), $this->endpoint_url ), array( 'response' => $this->response, 'request_args' => $args ) );
+				return new WP_Error( 'wp_rest_api_request_token_error', sprintf( __( 'There was an error retrieving the token from %s.', 'wds-wp-rest-api-connect' ), $this->endpoint_url ), array( 'response' => $this->response, 'request_args' => $args ) );
 			}
 
 			$body = wp_remote_retrieve_body( $this->response );
 			if ( ! $body ) {
-				return new WP_Error( 'wp_json_api_request_token_error', sprintf( __( 'Could not retrive body from %s.', 'wds-wp-rest-api-connect' ), $this->endpoint_url ) );
+				return new WP_Error( 'wp_rest_api_request_token_error', sprintf( __( 'Could not retrive body from %s.', 'wds-wp-rest-api-connect' ), $this->endpoint_url ) );
 			}
 
 			$this->token_response = $this->get_json_if_json( $body );
@@ -898,7 +898,7 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 		 * @return WP_Error object
 		 */
 		public function oauth_not_enabled_msg() {
-			return new WP_Error( 'wp_json_api_oauth_not_enabled_error', __( "Could not locate OAuth information; are you sure it's enabled?", 'wds-wp-rest-api-connect' ) );
+			return new WP_Error( 'wp_rest_api_oauth_not_enabled_error', __( "Could not locate OAuth information; are you sure it's enabled?", 'wds-wp-rest-api-connect' ) );
 		}
 
 		/**
@@ -909,7 +909,7 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 		 * @return WP_Error object
 		 */
 		public function connection_failed_msg() {
-			return new WP_Error( 'wp_json_api_connection_failed_error', __( 'There was a problem connecting to the API URL specified.', 'wds-wp-rest-api-connect' ) );
+			return new WP_Error( 'wp_rest_api_connection_failed_error', __( 'There was a problem connecting to the API URL specified.', 'wds-wp-rest-api-connect' ) );
 		}
 
 		/**
