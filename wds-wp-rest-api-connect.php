@@ -16,7 +16,7 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 	 *
 	 * @author  Justin Sternberg <justin@webdevstudios.com>
 	 * @package WDS_WP_REST_API_Connect
-	 * @version 0.1.2
+	 * @version 0.1.3
 	 */
 	class WDS_WP_REST_API_Connect {
 
@@ -903,6 +903,8 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 				case 'response':
 				case 'response_code':
 				case 'method':
+				case 'key':
+				case 'option_key':
 					return $this->{$field};
 				case 'json_url':
 				case 'consumer_key':
