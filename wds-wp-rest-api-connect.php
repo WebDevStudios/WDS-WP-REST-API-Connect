@@ -778,6 +778,18 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 		}
 
 		/**
+		 * Handles deleting the stored data for a connection
+		 *
+		 * @since  0.1.3
+		 *
+		 * @return bool  Result of delete_option
+		 */
+		public function delete_entire_option() {
+			delete_transient( 'apiconnect_desc_'. $this->option_key );
+			return delete_option( $this->option_key );
+		}
+
+		/**
 		 * Updates/replaces the wp_rest_api_connect_error option
 		 *
 		 * @since  0.1.3
@@ -796,6 +808,17 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 					'request_response' => print_r( $this->response, true ),
 				), '', 'no' );
 			}
+		}
+
+		/**
+		 * Fetches the wp_rest_api_connect_error option value
+		 *
+		 * @since  0.1.3
+		 *
+		 * @return mixed  wp_rest_api_connect_error option value
+		 */
+		public function get_stored_error() {
+			return get_option( 'wp_rest_api_connect_error' );
 		}
 
 		/**
