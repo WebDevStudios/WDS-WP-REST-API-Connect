@@ -538,12 +538,7 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 			if ( ! $body || ( isset( $this->response['response']['code'] ) && 200 != $this->response['response']['code'] ) ) {
 				$error = sprintf( __( 'Could not retrive body from URL: "%s"', 'wds-wp-rest-api-connect' ), $this->args['json_url'] );
 
-				delete_option( 'wp_json_api_connect_error' );
-				add_option( 'wp_json_api_connect_error', array(
-					'message'          => $error,
-					'request_args'     => print_r( $this->args, true ),
-					'request_response' => print_r( $this->response, true ),
-				), '', 'no' );
+				$this->update_stored_error( $error );
 
 				if ( defined( 'WP_DEBUG' ) ) {
 					error_log( 'error: '. $error );
@@ -780,6 +775,24 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 				return $this->do_update();
 			}
 			return false;
+		}
+
+		/**
+		 * Updates/replaces the wp_json_api_connect_error option
+		 *
+		 * @since  0.1.3
+		 *
+		 * @param  string  $error Error message
+		 *
+		 * @return void
+		 */
+		public function update_stored_error( $error ) {
+			delete_option( 'wp_json_api_connect_error' );
+			add_option( 'wp_json_api_connect_error', array(
+				'message'          => $error,
+				'request_args'     => print_r( $this->args, true ),
+				'request_response' => print_r( $this->response, true ),
+			), '', 'no' );
 		}
 
 		/**
