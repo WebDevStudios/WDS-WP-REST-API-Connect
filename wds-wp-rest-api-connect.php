@@ -778,7 +778,7 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 		}
 
 		/**
-		 * Updates/replaces the wp_json_api_connect_error option
+		 * Updates/replaces the wp_rest_api_connect_error option
 		 *
 		 * @since  0.1.3
 		 *
@@ -787,8 +787,8 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 		 * @return void
 		 */
 		public function update_stored_error( $error ) {
-			delete_option( 'wp_json_api_connect_error' );
-			add_option( 'wp_json_api_connect_error', array(
+			delete_option( 'wp_rest_api_connect_error' );
+			add_option( 'wp_rest_api_connect_error', array(
 				'message'          => $error,
 				'request_args'     => print_r( $this->args, true ),
 				'request_response' => print_r( $this->response, true ),
