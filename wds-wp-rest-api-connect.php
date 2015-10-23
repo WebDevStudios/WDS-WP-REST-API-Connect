@@ -3,7 +3,7 @@
 if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 
 	/**
-	 * Connect to the WordPress JSON API using WordPress APIs
+	 * Connect to the WordPress REST API using WordPress APIs
 	 *
 	 * API Documentation
 	 * https://github.com/WP-API/WP-API/tree/master/docs
@@ -259,7 +259,7 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 		 *
 		 * @param  string  $path Option path to append
 		 *
-		 * @return string        JSON request URL
+		 * @return string        REST request URL
 		 */
 		public function json_url( $path = '' ) {
 			// Make sure we only have a path

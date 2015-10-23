@@ -1,6 +1,6 @@
 {
     "name": "webdevstudios/wds-wp-rest-api-connect",
-    "description": "Helper class for connecting from one WordPress installation to another via the WordPress JSON API and OAuth.",
+    "description": "Helper class for connecting from one WordPress installation to another via the WordPress REST API and OAuth.",
     "license": "GPL-2.0+",
     "authors": [
         {
@@ -11,10 +11,10 @@
         }
     ],
     "keywords": ["wordpress", "wp-api", "json" ],
-    "homepage": "https://github.com/WebDevStudios/WDS-WP-JSON-API-Connect2",
+    "homepage": "https://github.com/WebDevStudios/WDS-WP-REST-API-Connect",
     "support": {
-        "issues": "https://github.com/WebDevStudios/WDS-WP-JSON-API-Connect/issues",
-        "source": "https://github.com/WebDevStudios/WDS-WP-JSON-API-Connect"
+        "issues": "https://github.com/WebDevStudios/WDS-WP-REST-API-Connect/issues",
+        "source": "https://github.com/WebDevStudios/WDS-WP-REST-API-Connect"
     },
     "require": {
         "php": ">5.3"

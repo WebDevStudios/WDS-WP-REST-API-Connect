@@ -11,7 +11,7 @@ function wp_json_api_connect_example_test() {
 	$consumer = array(
 		'consumer_key'    => 'YOUR CONSUMER KEY',
 		'consumer_secret' => 'YOUR CONSUMER SECRET',
-		'json_url'        => 'JSON API URL OF SITE',
+		'json_url'        => 'REST API URL OF SITE',
 	);
 
 	$api = new WDS_WP_REST_API_Connect( $consumer );
@@ -47,7 +47,7 @@ function wp_json_api_connect_example_test() {
 	}
 
 	$post_id_to_update = 1;
-	$updated_data = array( 'title' => 'Hello JSON World!' );
+	$updated_data = array( 'title' => 'Hello REST API World!' );
 	$response = $api->auth_post_request( 'posts/'. $post_id_to_update, $updated_data );
 
 	if ( is_wp_error( $response ) ) {

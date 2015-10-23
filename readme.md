@@ -1,18 +1,19 @@
-WDS WP JSON API Connect [![Scrutinizer Code Quality](http://img.shields.io/scrutinizer/g/WebDevStudios/WDS-WP-JSON-API-Connect.svg?style=flat)](https://scrutinizer-ci.com/g/WebDevStudios/WDS-WP-JSON-API-Connect/)
+WDS WP REST API Connect [![Scrutinizer Code Quality](http://img.shields.io/scrutinizer/g/WebDevStudios/WDS-WP-JSON-API-Connect.svg?style=flat)](https://scrutinizer-ci.com/g/WebDevStudios/WDS-WP-JSON-API-Connect/)
+WDS WP REST API Connect [![Scrutinizer Code Quality](http://img.shields.io/scrutinizer/g/WebDevStudios/WDS-WP-JSON-API-Connect.svg?style=flat)](https://scrutinizer-ci.com/g/WebDevStudios/WDS-WP-JSON-API-Connect/)
 =========
 
 A tool for connecting to the [JSON-based REST API for WordPress](https://github.com/WP-API/WP-API) via [OAuth 1.0a](https://github.com/WP-API/OAuth1).
 
-To get started, you'll need to install both the [WP JSON API plugin](https://github.com/WP-API/WP-API) and the [OAuth plugin](https://github.com/WP-API/OAuth1).
+To get started, you'll need to install both the [WP REST API plugin](https://github.com/WP-API/WP-API) and the [OAuth plugin](https://github.com/WP-API/OAuth1).
 
 Once installed and activated, you'll need to create a '[Consumer](https://github.com/WP-API/client-cli#step-1-creating-a-consumer)'.
-When you have the Consumer key and secret, you'll create a new WDS_WP_REST_API_Connect object by passing those credentials along with the JSON API URL:
+When you have the Consumer key and secret, you'll create a new WDS_WP_REST_API_Connect object by passing those credentials along with the REST API URL:
 ```php
 // Consumer credentials
 $consumer = array(
 	'consumer_key'    => 'YOUR CONSUMER KEY',
 	'consumer_secret' => 'YOUR CONSUMER SECRET',
-	'json_url'        => 'JSON API URL OF SITE',
+	'json_url'        => 'REST API URL OF SITE',
 );
 $api = new WDS_WP_REST_API_Connect( $consumer );
 ```
@@ -33,7 +34,7 @@ function wp_json_api_connect_example_test() {
 	$consumer = array(
 		'consumer_key'    => 'YOUR CONSUMER KEY',
 		'consumer_secret' => 'YOUR CONSUMER SECRET',
-		'json_url'        => 'JSON API URL OF SITE',
+		'json_url'        => 'REST API URL OF SITE',
 	);
 
 	$api = new WDS_WP_REST_API_Connect( $consumer );
@@ -69,7 +70,7 @@ function wp_json_api_connect_example_test() {
 	}
 
 	$post_id_to_update = 1;
-	$updated_data = array( 'title' => 'Hello JSON World!' );
+	$updated_data = array( 'title' => 'Hello REST API World!' );
 	$response = $api->auth_post_request( 'posts/'. $post_id_to_update, $updated_data );
 
 	if ( is_wp_error( $response ) ) {
