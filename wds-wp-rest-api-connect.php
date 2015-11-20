@@ -216,7 +216,6 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 		 * @return object|WP_Error      Updated object, or WP_Error
 		 */
 		public function auth_request( $path = '', $request_args = array(), $method = 'GET' ) {
-
 			$this->set_method( $method );
 
 			if ( ! ( $token_data = $this->get_url_access_token_data() ) ) {
@@ -240,7 +239,7 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 				$args['headers']['Authorization'] = 'OAuth '. $this->authorize_header_string( $oauth_args );
 			} else {
 				$args['method'] = $this->get_method();
-				$args['body']   = $oauth_args;
+				$args['body']   = $this->http_build_query( $oauth_args );
 			}
 
 			$this->response      = wp_remote_request( $this->endpoint_url, $args );
@@ -310,6 +309,57 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 		 */
 		function auth_object() {
 			return $this->retrieve_and_set_var_from_description( 'auth_object' );
+		}
+
+		/**
+		 * Handles bulding an http query without ommitting empty values
+		 * @since  X.X.X
+		 * @param  mixed  $args Array, object or string
+		 * @return string       http query string with all values in-tact
+		 */
+		public function http_build_query( $args ) {
+			$null_replaced = $this->replace_null_values( $args );
+			if ( ! is_array( $null_replaced ) ) {
+				return $args;
+			}
+
+			$null_replaced_string = str_replace(
+				'replacemeemptystringreplaceme',
+				'',
+				http_build_query( $null_replaced )
+			);
+
+			return $null_replaced_string;
+		}
+
+		/**
+		 * Recursively replaces empty values in an array with placeholders.
+		 * This is so that http_build_query does not ommit empty values.
+		 * @since  X.X.X
+		 * @param  mixed  $args Array, object or string
+		 * @return mixed        Array with temporarily modified values.
+		 */
+		public function replace_null_values( $args ) {
+			if ( ! is_array( $args ) && ! is_object( $args ) ) {
+				return $args;
+			}
+
+			$new_args = array();
+			foreach ( $args as $key => $value ) {
+				if ( is_array( $value ) || is_object( $value ) ) {
+					$new_args[ $key ] = $this->replace_null_values( $value );
+				} elseif (
+					null === $value
+					|| '' === $value
+					|| false === $value
+				) {
+					$new_args[ $key ] = 'replacemeemptystringreplaceme';
+				} else {
+					$new_args[ $key ] = $value;
+				}
+			}
+
+			return $new_args;
 		}
 
 		/**
