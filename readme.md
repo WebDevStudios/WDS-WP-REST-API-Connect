@@ -90,3 +90,34 @@ function wp_json_api_connect_example_test() {
 }
 add_action( 'all_admin_notices', 'wp_json_api_connect_example_test' );
 ```
+
+## Changelog
+
+### 0.1.4
+* Add utility methods for dealing with errors.
+* Convert post body to a query string before wp_remote_request does because http_build_query drops empty values and oauth signatures end up not matching.
+
+### 0.1.3
+* Fix some docs, and "clever" code, and fix an incorrect variable name.
+* Add class_exists check so we don't break sites w/ multiple instantiations.
+* Store response code as object property.
+* Account for `WP_Error` from responses before creating response code.
+* Accept a headers array, and pass those headers to all requests.
+* Option/transient key should be a hash of all the args, not just the url.
+* Do not cache api description if request is a failure (or being requested not to).
+* Make headers and key/option_key accessible as read-only properties.
+* Change from JSON to REST to match WordPress core plugin.
+* Move error option to its own method.
+
+### 0.1.2
+* Better checks for failed requests.
+* Set the http method for each call so that the OAuth signature matches.
+* Create a redirect URL based on current url or allow one to be passed in.
+* Keep response as an accessible class property, and add get/set request methods. Also properly handle GET request authorization header.
+* Some cleanup based on scrutinizer feedback.
+
+### 0.1.1
+* Rename file
+
+### 0.1.0
+* Release

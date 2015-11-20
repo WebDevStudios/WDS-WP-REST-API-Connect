@@ -16,7 +16,7 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 	 *
 	 * @author  Justin Sternberg <justin@webdevstudios.com>
 	 * @package WDS_WP_REST_API_Connect
-	 * @version 0.1.3
+	 * @version 0.1.4
 	 */
 	class WDS_WP_REST_API_Connect {
 
@@ -313,7 +313,7 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 
 		/**
 		 * Handles bulding an http query without ommitting empty values
-		 * @since  X.X.X
+		 * @since  0.1.4
 		 * @param  mixed  $args Array, object or string
 		 * @return string       http query string with all values in-tact
 		 */
@@ -335,7 +335,7 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 		/**
 		 * Recursively replaces empty values in an array with placeholders.
 		 * This is so that http_build_query does not ommit empty values.
-		 * @since  X.X.X
+		 * @since  0.1.4
 		 * @param  mixed  $args Array, object or string
 		 * @return mixed        Array with temporarily modified values.
 		 */
