@@ -51,7 +51,7 @@ function wp_json_api_connect_example_test() {
 	}
 
 	$post_id_to_view = 1;
-	$response = $api->auth_get_request( 'posts/'. $post_id_to_view );
+	$response = $api->auth_get_request( 'wp/v2/posts/'. $post_id_to_view );
 
 	if ( is_wp_error( $response ) ) {
 
@@ -70,7 +70,7 @@ function wp_json_api_connect_example_test() {
 
 	$post_id_to_update = 1;
 	$updated_data = array( 'title' => 'Hello REST API World!' );
-	$response = $api->auth_post_request( 'posts/'. $post_id_to_update, $updated_data );
+	$response = $api->auth_post_request( 'wp/v2/posts/'. $post_id_to_update, $updated_data );
 
 	if ( is_wp_error( $response ) ) {
 
