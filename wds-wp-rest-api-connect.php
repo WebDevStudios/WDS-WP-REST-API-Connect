@@ -16,7 +16,7 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 	 *
 	 * @author  Justin Sternberg <justin@webdevstudios.com>
 	 * @package WDS_WP_REST_API_Connect
-	 * @version 0.1.4
+	 * @version 0.1.5
 	 */
 	class WDS_WP_REST_API_Connect {
 

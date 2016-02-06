@@ -93,6 +93,9 @@ add_action( 'all_admin_notices', 'wp_json_api_connect_example_test' );
 
 ## Changelog
 
+### 0.1.5
+* Remove autoload from composer.json (for now).
+
 ### 0.1.4
 * Add utility methods for dealing with errors.
 * Convert post body to a query string before wp_remote_request does because http_build_query drops empty values and oauth signatures end up not matching.
