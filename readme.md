@@ -48,6 +48,9 @@ You can then use this object to retrieve the authentication request URL, or if y
 
 ## Changelog
 
+### 0.2.1
+* Bug fix: Fix the order of checks in the reset_connection method to ensure the delete_stored_error method is always called.
+
 ### 0.2.0
 * Complete rewrite. Breaks backwards-compatibility, but previous version will not work with the newest version of the [WordPress OAuth](https://github.com/WP-API/OAuth1) plugin. Please review the [WP-API Authentication documentation](http://v2.wp-api.org/guide/authentication/#oauth-authentication).
 
