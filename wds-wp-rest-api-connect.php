@@ -1,9 +1,20 @@
 <?php
 
-if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
+namespace WDS_WP_REST_API\OAuth1;
+
+use Exception;
+use WP_Error;
+use WDS_WP_REST_API\Storage\Store_Interface;
+use WDS_WP_REST_API\Storage\Transient_Interface;
+use WDS_WP_REST_API\OAuth1\WPServer;
+
+if ( ! class_exists( 'WDS_WP_REST_API\OAuth1\Connect' ) ) :
+
+	// Make sure you run `composer install`!
+	require_once dirname( __FILE__ ) . '/vendor/autoload.php';
 
 	/**
-	 * Connect to the WordPress REST API using WordPress APIs
+	 * Connect to the WordPress REST API over OAuth1
 	 *
 	 * API Documentation
 	 * https://github.com/WP-API/WP-API/tree/master/docs
@@ -15,180 +26,546 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 	 * http://tools.ietf.org/html/rfc5849
 	 *
 	 * @author  Justin Sternberg <justin@webdevstudios.com>
-	 * @package WDS_WP_REST_API_Connect
-	 * @version 0.1.5
+	 * @package Connect
+	 * @version 0.2.0
 	 */
-	class WDS_WP_REST_API_Connect {
+	class Connect {
 
 		/**
-		 * JSON description object from the json_url
+		 * OAuth1 Client
 		 *
-		 * @var mixed
+		 * @var WPServer
 		 */
-		protected $json_desc = null;
+		protected $server;
 
 		/**
-		 * Connect object arguments
+		 * Options Store
 		 *
-		 * @var array
+		 * @var Store_Interface
 		 */
-		protected $args = array();
+		protected $store;
 
 		/**
-		 * Generated santized key based on json_url
+		 * Transients Store
 		 *
-		 * @var string
+		 * @var Transient_Interface
 		 */
-		protected $key = '';
+		protected $transient;
+
+		protected $key                 = '';
+		protected $client_key        = '';
+		protected $client_secret     = '';
+		protected $api_url             = '';
+		protected $headers             = '';
+		protected $callback_uri        = '';
+		protected $access_token        = '';
+		protected $access_token_secret = '';
+		protected $endpoint_url        = '';
+
+		protected $is_authorizing = null;
+		protected $autoredirect_authoriziation = true;
+		protected $method  = 'GET';
+
+		public $json_desc = '';
+		public $response  = '';
 
 		/**
-		 * Option key based on json_url
+		 * Connect object constructor.
 		 *
-		 * @var string
+		 * @since 0.2.0
+		 *
+		 * @param array $storage_classes (optional) override the storage classes.
 		 */
-		protected $option_key = '';
+		public function __construct( $storage_classes = array() ) {
+			$storage_classes = wp_parse_args( $storage_classes, array(
+				'options_class' => 'WDS_WP_REST_API\Storage\Options',
+				'transients_class' => 'WDS_WP_REST_API\Storage\Transients',
+			) );
+
+			$this->instantiate_storage_objects(
+				new $storage_classes['options_class'](),
+				new $storage_classes['options_class']( false ),
+				new $storage_classes['transients_class']()
+			);
+		}
 
 		/**
-		 * The URL being requested
+		 * Instantiates the storage objects for the options and transients.
 		 *
-		 * @var string
+		 * @since  0.2.0
+		 *
+		 * @param  Store_Interface     $store       Option storage
+		 * @param  Store_Interface     $error_store Error option storage
+		 * @param  Transient_Interface $transient   Transient storage
 		 */
-		protected $endpoint_url = '';
+		protected function instantiate_storage_objects(
+			Store_Interface $store,
+			Store_Interface $error_store,
+			Transient_Interface $transient
+		) {
+			$this->store = $store;
+			$this->error_store = $error_store;
+			$this->error_store->set_key( 'wp_rest_api_connect_error' );
 
-		/**
-		 * The OAuth object in the JSON description object
-		 *
-		 * @var object
-		 */
-		protected $auth_object = null;
-
-		/**
-		 * Retrieved token for authorization URL
-		 *
-		 * @var mixed
-		 */
-		protected $token_response = null;
-
-		/**
-		 * Arguments for for URL being requested
-		 *
-		 * @var array
-		 */
-		protected $request_args = false;
-
-		/**
-		 * Stored options containing token data for a URL
-		 *
-		 * @var array
-		 */
-		protected $options = array();
-
-		/**
-		 * Default request method
-		 *
-		 * @var string
-		 */
-		protected $method = null;
-
-		/**
-		 * HTTP response object
-		 *
-		 * @var object
-		 */
-		protected $response = null;
-
-		/**
-		 * HTTP response code
-		 *
-		 * @var int
-		 */
-		protected $response_code = 0;
+			$this->transient = $transient;
+			$this->transient->set_key( 'apiconectdesc_'. md5( serialize( $this ) ) );
+		}
 
 		/**
 		 * Initate our connect object
 		 *
 		 * @since 0.1.0
 		 *
-		 * @param array $args Arguments containing 'consumer_key', 'consumer_secret', and the 'json_url'
+		 * @param array $args Arguments containing 'client_key', 'client_secret', 'api_url',
+		 *                    'headers', 'callback_uri', 'autoredirect_authoriziation'
 		 */
-		public function __construct( $args = array() ) {
-			$this->args = wp_parse_args( $args, array(
-				'consumer_key'       => '',
-				'consumer_secret'    => '',
-				'json_url'           => '',
-				'oauth_token_secret' => '',
-				'headers'            => '',
-			) );
+		public function init( $args ) {
+			foreach ( wp_parse_args( $args, array(
+				'client_key'                => '',
+				'client_secret'             => '',
+				'api_url'                     => '',
+				'headers'                     => '',
+				'callback_uri'                => '',
+				'autoredirect_authoriziation' => true,
+			) ) as $key => $arg ) {
+				$this->{$key} = $arg;
+			}
 
-			$this->key        = md5( sanitize_title( $this->args['json_url'] ) );
-			$this->option_key = 'apiconnect_' . md5( serialize( $this->args ) );
+			if ( $this->key() ) {
+				$this->set_object_properties();
+			}
 
-			if ( isset( $_REQUEST['oauth_authorize_url'], $_REQUEST['oauth_token'] ) ) {
-				if ( md5( sanitize_title( $_REQUEST['oauth_authorize_url'] ) ) == $this->key ) {
-					$this->store_token_and_secret( $_REQUEST );
+			// If we haven't done API discovery yet, do that now.
+			$discovered = ! $this->discovered() ? $this->do_discovery() : true;
+
+			// If discovery failed, we cannot proceed.
+			if ( is_wp_error( $discovered ) ) {
+				return $discovered;
+			}
+
+			// If autoredirect is requested, and we are not yet authorized,
+			// redirect to the other site to get authorization.
+			$error = $this->maybe_redirect_to_authorization();
+
+			// If authorization failed, we cannot proceed.
+			if ( is_wp_error( $error ) ) {
+				return $error;
+			}
+
+			// Ok, initiation is complete and successful.
+			return true;
+		}
+
+		/**
+		 * Get the options from the DB and set the object properties.
+		 *
+		 * @since 0.2.0
+		 */
+		public function set_object_properties() {
+			foreach ( $this->get_option() as $property => $value ) {
+				if ( property_exists( $this, $property ) ) {
+					$this->{$property} = $value;
 				}
 			}
+
+			$creds = $this->get_option( 'token_credentials' );
+
+			if ( is_object( $creds ) ) {
+				$this->access_token = $creds->getIdentifier();
+				$this->access_token_secret = $creds->getSecret();
+			}
 		}
 
 		/**
-		 * Retrieve URL to request user authorization
+		 * Do the API discovery.
 		 *
-		 * @since  0.1.0
+		 * @since  0.2.0
 		 *
-		 * @param  array $callback_query_params Additional query paramaters
-		 * @param  array $return_url   URL to return to when authorized.
+		 * @param  string $url The URL to discover.
 		 *
-		 * @return mixed               Authorization Request URL or error
+		 * @return string|WP_Error The API endpoint URL or WP_Error.
 		 */
-		public function get_authorization_url( $callback_query_params = array(), $return_url = '' ) {
-			if ( ! ( $request_authorize_url = $this->request_authorize_url() ) ) {
-				return false;
+		public function do_discovery( $url = '' ) {
+			$url = esc_url_raw( $url ? $url : $this->api_url );
+
+			try {
+				$site = \WordPress\Discovery\discover( $url );
+			}
+			catch ( Exception $e ) {
+				$msg = sprintf( __( 'There is a problem with the provided api_url parameter. %s.' ), htmlspecialchars( $e->getMessage() ) );
+				return $this->update_stored_error( $msg );
 			}
 
-			if ( $this->get_url_access_token_data( 'oauth_token_secret' ) ) {
-				return false;
+			if ( empty( $site ) ) {
+				$msg = sprintf( __( "Couldn't find the API at <code>%s</code>." ), htmlspecialchars( $url ) );
+				$error = new WP_Error( 'wp_rest_api_rest_api_not_found', $msg, $this->args() );
+				return $this->update_stored_error( $error );
 			}
 
-			$token = $this->get_token();
-			if ( is_wp_error( $token ) ) {
-				return $token;
+			if ( ! $site->supportsAuthentication( 'oauth1' ) ) {
+				$error = new WP_Error( 'wp_rest_api_oauth_not_enabled_error', __( "Site doesn't appear to support OAuth 1.0a authentication.", 'wds-wp-rest-api-connect' ), $this->args() );
+				return $this->update_stored_error( $error );
 			}
 
-			$token_array = is_string( $token ) ? $this->parse_str( $token ) : (array) $token;
+			$this->set_api_url( $site->getIndexURL() );
+			$this->update_option( 'api_url', $this->api_url, false );
+			$this->update_option( 'auth_urls', $site->getAuthenticationData( 'oauth1' ) );
 
-			if ( ! isset( $token_array['oauth_token'] ) ) {
-				return new WP_Error( 'wp_rest_api_get_token_error', sprintf( __( 'There was an error retrieving the token from %s.', 'wds-wp-rest-api-connect' ), $this->endpoint_url ), array( 'token' => $token, 'request_authorize_url' => $request_authorize_url, 'method' => $this->get_method() ) );
+			return $this->api_url;
+		}
+
+		/**
+		 * Get the authorization (login) URL for the server.
+		 *
+		 * @since  0.2.0
+		 *
+		 * @return string|WP_Error Authorization URL or WP_Error.
+		 */
+		public function get_authorization_url() {
+			$this->set_object_properties();
+
+			if ( ! $this->get_option( 'auth_urls' ) ) {
+				return new WP_Error( 'wp_rest_api_discovery_incomplete', sprintf( __( 'Please call %s.', 'wds-wp-rest-api-connect' ), __CLASS__ . '::do_discovery()' ), $this->args() );
 			}
 
-			$callback_query_params = array_merge( array(
-				'oauth_authorize_url' => urlencode( $this->args['json_url'] ),
-			), $callback_query_params );
+			$server = $this->get_server();
+			// First part of OAuth 1.0 authentication is retrieving temporary credentials.
+			// These identify you as a client to the server.
+			try {
+				$temp_credentials = $server->getTemporaryCredentials();
+			} catch ( Exception $e ) {
+				return $this->update_stored_error( $e->getMessage() );
+			}
 
-			// Build redirect URL
-			$return_url = $return_url ? esc_url( $return_url ) : ( is_ssl() ? 'https://' : 'http://' ) . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+			$this->update_option( 'temp_credentials', $temp_credentials );
 
-			$query_args = array(
-				'oauth_token' => $token_array['oauth_token'],
-				'oauth_callback' => urlencode( add_query_arg( $callback_query_params, $return_url ) ),
+			return $server->getAuthorizationUrl( $temp_credentials );
+		}
+
+		/**
+		 * Check if the authorization callback has been initiated.
+		 *
+		 * @since  0.2.0
+		 *
+		 * @return boolean
+		 */
+		public function is_authorizing() {
+			if ( null !== $this->is_authorizing ) {
+				return $this->is_authorizing;
+			}
+
+			$this->is_authorizing = false;
+
+			if ( isset(
+				$_REQUEST['step'],
+				$_REQUEST['auth_key'],
+				$_REQUEST['auth_nonce'],
+				$_REQUEST['oauth_token'],
+				$_REQUEST['oauth_verifier']
+			) && 'authorize' === $_REQUEST['step'] ) {
+
+				$nonce_check = wp_verify_nonce( $_REQUEST['auth_nonce'], md5( __FILE__ ) );
+				$key_check = $_REQUEST['auth_key'] === $this->key();
+
+				if ( $key_check && $nonce_check ) {
+					$this->do_authorization( $_REQUEST['oauth_token'], $_REQUEST['oauth_verifier'] );
+					$this->is_authorizing = true;
+				}
+			}
+
+			return $this->is_authorizing;
+		}
+
+		/**
+		 * If autoredirect is enabled, and we are not yet authorized,
+		 * redirect to the server to get authorization.
+		 *
+		 * @since  0.2.0
+		 *
+		 * @return bool|WP_Error  WP_Error is an issue, else redirects.
+		 */
+		public function maybe_redirect_to_authorization() {
+			if (
+				$this->autoredirect_authoriziation
+				&& ! $this->is_authorizing()
+				&& ! $this->connected()
+			) {
+				return $this->redirect_to_login();
+			}
+
+			return true;
+		}
+
+		/**
+		 * Do the redirect to the authorization (login) URL.
+		 *
+		 * @since  0.2.0
+		 *
+		 * @return mixed  WP_Error if authorization URL lookup fails.
+		 */
+		public function redirect_to_login() {
+			if ( ! $this->client_key ) {
+				return new WP_Error( 'wp_rest_api_missing_client_data', __( 'Missing client key.', 'wds-wp-rest-api-connect' ), $this->args() );
+			}
+
+			$url = $this->get_authorization_url();
+			if ( is_wp_error( $url ) ) {
+				return $url;
+			}
+
+			// Second part of OAuth 1.0 authentication is to redirect the
+			// resource owner to the login screen on the server.
+			wp_redirect( $url );
+			exit();
+		}
+
+		/**
+		 * Swap temporary credentials for permanent authorized credentials.
+		 *
+		 * @since  0.2.0
+		 *
+		 * @param  string  $oauth_token
+		 * @param  string  $oauth_verifier
+		 *
+		 * @return mixed   WP_Error if failure, else redirect to callback_uri.
+		 */
+		public function do_authorization( $oauth_token, $oauth_verifier ) {
+			$server = $this->get_server();
+
+			// Retrieve the temporary credentials from step 2
+			$temp_credentials = $this->get_option( 'temp_credentials' );
+
+			if ( ! $temp_credentials ) {
+				$msg = __( "Couldn't find the API temporary credentials." );
+				$error = new WP_Error( 'wp_rest_api_missing_temp_credentials', $msg, $this->args() );
+				return $this->update_stored_error( $error );
+			}
+
+			/*
+			 * Third and final part to OAuth 1.0 authentication is to retrieve token
+			 * credentials (formally known as access tokens in earlier OAuth 1.0
+			 * specs).
+			 */
+			$this->update_option(
+				'token_credentials',
+				$server->getTokenCredentials( $temp_credentials, $oauth_token, $oauth_verifier ),
+				false
 			);
 
-			$request_url = add_query_arg( $query_args, esc_url( $request_authorize_url ) );
+			// Now, we'll store the token credentials and discard the
+			// temporary ones - they're irrelevant at this stage.
+			$this->delete_option( 'temp_credentials' );
 
-			return $request_url;
+			wp_redirect( $this->callback_uri );
+			exit();
 		}
 
 		/**
-		 * Perform an authenticated POST request
+		 * Get's authorized user. Useful for testing authenticated connection.
 		 *
-		 * @since  0.1.0
+		 * @since  0.2.0
 		 *
-		 * @param  string $path    Url endpoint path to resource
-		 * @param  array  $data    Array of data to update resource
-		 *
-		 * @return object|WP_Error Updated object, or WP_Error
+		 * @return mixed  User object or WP_Error object.
 		 */
-		public function auth_post_request( $path, $data ) {
-			return $this->auth_request( $path, (array) $data, 'POST' );
+		public function get_user() {
+			if ( ! $this->access_token ) {
+				$error = new WP_Error( 'wp_rest_api_not_authorized', __( 'Authorization has not yet been granted.', 'wds-wp-rest-api-connect' ) , $this->args() );
+				return $this->update_stored_error( $error );
+			}
+
+			try {
+				$user = $this->get_server()->getUserDetails( $this->get_option( 'token_credentials' ) );
+			} catch ( Exception $e ) {
+				return new WP_Error( 'wp_rest_api_no_user_found', $e->getMessage(), $this->args() );
+			}
+			return $user;
+		}
+
+		/**
+		 * Get WPServer object
+		 *
+		 * @since  0.2.0
+		 *
+		 * @return WPServer
+		 */
+		function get_server() {
+			if ( ! empty( $this->server ) ) {
+				return $this->server;
+			}
+
+			date_default_timezone_set('UTC');
+
+			$this->set_callback_uri( $this->callback_uri ? $this->callback_uri : $this->get_requested_url() );
+
+			$callback_uri = add_query_arg( array(
+				'step' => 'authorize',
+				'auth_key' => $this->key(),
+				'auth_nonce' => wp_create_nonce( md5( __FILE__ ) ),
+			), $this->callback_uri );
+
+			$this->server = new WPServer( array(
+				'identifier'   => $this->client_key,
+				'secret'       => $this->client_secret,
+				'api_root'     => $this->api_url,
+				'auth_urls'    => $this->get_option( 'auth_urls' ),
+				'callback_uri' => $callback_uri,
+			) );
+
+			return $this->server;
+		}
+
+		/**
+		 * Get the current URL
+		 *
+		 * @since  0.2.0
+		 *
+		 * @return string current URL
+		 */
+		public function get_requested_url() {
+			$scheme = ( isset( $_SERVER['HTTPS'] ) && $_SERVER['HTTPS'] ) ? 'https' : 'http';
+			$here = $scheme . '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+			if ( ! empty( $_SERVER['QUERY_STRING'] ) ) {
+				// Strip the query string
+				$here = str_replace( '?' . $_SERVER['QUERY_STRING'], '', $here );
+			}
+
+			return $here;
+		}
+
+		/**
+		 * Get the stored-data key
+		 *
+		 * @since  0.2.0
+		 *
+		 * @return string
+		 */
+		public function key() {
+			try {
+				return $this->store->get_key();
+			} catch ( Exception $e ) {
+				if ( $this->api_url ) {
+					return $this->store->set_key( 'apiconnect_' . md5( sanitize_text_field( $this->api_url ) ) );
+				}
+			}
+
+			return '';
+		}
+
+		/**
+		 * Tests whether connection has been created.
+		 *
+		 * @since  0.2.0
+		 *
+		 * @return bool
+		 */
+		public function connected() {
+			return (bool) $this->get_option( 'token_credentials' );
+		}
+
+		/**
+		 * Tests whether API discovery has been completed.
+		 *
+		 * @since  0.2.0
+		 *
+		 * @return bool
+		 */
+		public function discovered() {
+			return (bool) $this->get_option( 'auth_urls' );
+		}
+
+		/**
+		 * Get current object data for debugging.
+		 *
+		 * @since  0.2.0
+		 *
+		 * @return array
+		 */
+		public function args() {
+			return array(
+				'key'                 => $this->key(),
+				'client_key'          => $this->client_key,
+				'client_secret'       => $this->client_secret,
+				'api_url'             => $this->api_url,
+				'headers'             => $this->headers,
+				'auth_urls'           => $this->get_option( 'auth_urls' ),
+				'callback_uri'        => $this->callback_uri,
+				'access_token'        => $this->access_token,
+				'access_token_secret' => $this->access_token_secret,
+				'endpoint_url'        => $this->endpoint_url,
+			);
+		}
+
+		/**
+		 * Sets the client_key object property
+		 *
+		 * @since 0.2.0
+		 *
+		 * @param string  $value Value to set
+		 */
+		public function set_client_key( $value ) {
+			$this->client_key = $value;
+			return $this->consume;
+		}
+
+		/**
+		 * Sets the client_secret object property
+		 *
+		 * @since 0.2.0
+		 *
+		 * @param string  $value Value to set
+		 */
+		public function set_client_secret( $value ) {
+			$this->client_secret = $value;
+			return $this->consume;
+		}
+
+		/**
+		 * Sets the api_url object property
+		 *
+		 * @since 0.2.0
+		 *
+		 * @param string  $value Value to set
+		 */
+		public function set_api_url( $value ) {
+			$this->api_url = $value;
+			return $this->api_url;
+		}
+
+		/**
+		 * Sets the callback_uri object property
+		 *
+		 * @since 0.2.0
+		 *
+		 * @param string  $value Value to set
+		 */
+		public function set_callback_uri( $value ) {
+			$this->callback_uri = $value;
+			return $this->callback_uri;
+		}
+
+		/**
+		 * Sets the endpoint_url object property
+		 *
+		 * @since 0.2.0
+		 *
+		 * @param string  $value Value to set
+		 */
+		public function set_endpoint_url( $value ) {
+			$this->endpoint_url = $value;
+			return $this->endpoin;
+		}
+
+		/**
+		 * Set request method
+		 *
+		 * @since 0.1.1
+		 *
+		 * @param string $method Request method
+		 *
+		 * @return string        New request method
+		 */
+		public function set_method( $method ) {
+			return $this->method = $method;
 		}
 
 		/**
@@ -197,11 +574,53 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 		 * @since  0.1.0
 		 *
 		 * @param  string $path    Url endpoint path to resource
+		 * @param  array  $data    Array of data to send in request.
 		 *
 		 * @return object|WP_Error Updated object, or WP_Error
 		 */
-		public function auth_get_request( $path = '' ) {
-			return $this->auth_request( $path );
+		public function auth_get_request( $path, $data = array() ) {
+			return $this->auth_request( $path, (array) $data, 'GET' );
+		}
+
+		/**
+		 * Perform an authenticated POST request
+		 *
+		 * @since  0.1.0
+		 *
+		 * @param  string $path    Url endpoint path to resource
+		 * @param  array  $data    Array of data to send in request.
+		 *
+		 * @return object|WP_Error Updated object, or WP_Error
+		 */
+		public function auth_post_request( $path, $data = array() ) {
+			return $this->auth_request( $path, (array) $data, 'POST' );
+		}
+
+		/**
+		 * Perform an authenticated HEAD request
+		 *
+		 * @since  0.1.0
+		 *
+		 * @param  string $path    Url endpoint path to resource
+		 * @param  array  $data    Array of data to send in request.
+		 *
+		 * @return object|WP_Error Updated object, or WP_Error
+		 */
+		public function auth_head_request( $path, $data = array() ) {
+			return $this->auth_request( $path, (array) $data, 'HEAD' );
+		}
+
+		/**
+		 * Perform an authenticated DELETE request
+		 *
+		 * @since  0.1.0
+		 *
+		 * @param  string $path    Url endpoint path to resource
+		 *
+		 * @return object|WP_Error Updated object, or WP_Error
+		 */
+		public function auth_delete_request( $path, $data = array() ) {
+			return $this->auth_request( $path, (array) $data, 'DELETE' );
 		}
 
 		/**
@@ -210,49 +629,67 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 		 * @since  0.1.0
 		 *
 		 * @param  string $path         Url endpoint path to resource
-		 * @param  array  $request_args Array of data to update resource
+		 * @param  array  $request_args Array of data to send in request.
 		 * @param  string $method       Request method. Defaults to GET
 		 *
 		 * @return object|WP_Error      Updated object, or WP_Error
 		 */
-		public function auth_request( $path = '', $request_args = array(), $method = 'GET' ) {
+		public function auth_request( $path, $request_args = array(), $method = 'GET' ) {
 			$this->set_method( $method );
 
-			if ( ! ( $token_data = $this->get_url_access_token_data() ) ) {
-				$url = $this->get_authorization_url();
-				if ( is_wp_error( $url ) ) {
-					return $url;
+			if ( ! $this->client_key ) {
+				return new WP_Error( 'wp_rest_api_missing_client_data', __( 'Missing client key.', 'wds-wp-rest-api-connect' ), $this->args() );
+			}
+
+			if ( ! $this->access_token || ! $this->get_option( 'token_credentials' ) ) {
+				return new WP_Error( 'wp_rest_api_not_authorized', __( 'Authorization has not yet been granted.', 'wds-wp-rest-api-connect' ) , $this->args() );
+			}
+
+			$this->endpoint_url = $this->api_url( $path );
+
+			$creds   = $this->get_option( 'token_credentials' );
+			$server  = $this->get_server();
+			$http    = $server->createHttpClient();
+			$headers = $server->getHeaders( $creds, $method, $this->endpoint_url, $request_args );
+
+			try {
+
+				$request = $http->createRequest( $method, $this->endpoint_url, $headers, $request_args );
+				$response = $request->send();
+
+				$this->response_code = $response->getStatusCode();
+
+				$headers = array();
+				foreach ( $response->getHeaders() as $header ) {
+					$headers[ strtolower( $header->getName() ) ] = (string) $header;
 				}
-				return new WP_Error( 'wp_rest_api_missing_token_data', sprintf( __( 'Missing token data. Try <a href="%s">reauthenticating</a>.', 'wds-wp-rest-api-connect' ), $url ), $url );
+
+				$this->response = array(
+					'headers' => $headers,
+					'body'    => $response->getBody( true ),
+					'response' => array(
+						'code'    => $this->response_code,
+						'message' => $response->getReasonPhrase(),
+					),
+				);
+
+			} catch ( Exception $e ) {
+				$response = $e->getResponse();
+				$body = $response->getBody( true );
+				$this->response_code = $response->getStatusCode();
+
+				$this->response = new WP_Error( 'wp_rest_api_response_error',
+					"Received error [$body] with status code [$this->response_code] when making request."
+				);
+
+				return $this->response;
 			}
 
-			if ( ! $path ) {
-				return $this->get_api_description();
-			}
-
-			$this->endpoint_url = $this->json_url( $path );
-			$request_args       = array_merge( (array) $token_data, $request_args );
-			$oauth_args         = $this->request_args( $request_args );
-			$args               = array( 'headers' => $this->args['headers'] );
-
-			if ( in_array( $this->get_method(), array( 'GET', 'HEAD', 'DELETE' ), true ) ) {
-				$args['headers']['Authorization'] = 'OAuth '. $this->authorize_header_string( $oauth_args );
-			} else {
-				$args['method'] = $this->get_method();
-				$args['body']   = $this->http_build_query( $oauth_args );
-			}
-
-			$this->response      = wp_remote_request( $this->endpoint_url, $args );
-			$this->response_code = ! is_wp_error( $this->response ) && isset( $this->response['response']['code'] )
-				? $this->response['response']['code']
-				: 0;
-			$body                = wp_remote_retrieve_body( $this->response );
-
-			return $this->get_json_if_json( $body );
+			return $this->get_json_if_json( wp_remote_retrieve_body( $this->response ) );
 		}
 
 		/**
-		 * Get the json_url and append included path
+		 * Get the api_url and append included path
 		 *
 		 * @since  0.1.0
 		 *
@@ -260,11 +697,11 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 		 *
 		 * @return string        REST request URL
 		 */
-		public function json_url( $path = '' ) {
+		public function api_url( $path = '' ) {
 			// Make sure we only have a path
-			$path = str_ireplace( $this->args['json_url'], '', $path );
+			$path = str_ireplace( $this->api_url, '', $path );
 			$path = ltrim( $path, '/' );
-			return $path ? trailingslashit( $this->args['json_url'] ) . $path : $this->args['json_url'];
+			return $path ? trailingslashit( $this->api_url ) . $path : $this->api_url;
 		}
 
 		/**
@@ -275,18 +712,18 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 		 * @return mixed Request URL or error
 		 */
 		function request_token_url() {
-			return $this->retrieve_and_set_var_from_description( 'request_token_url', 'request' );
+			return $this->get_server()->urlTemporaryCredentials();
 		}
 
 		/**
-		 * Gets the authorization URL from the JSON description object
+		 * Gets the authorization base URL from the JSON description object
 		 *
 		 * @since  0.1.0
 		 *
 		 * @return mixed Authorization URL or error
 		 */
 		function request_authorize_url() {
-			return $this->retrieve_and_set_var_from_description( 'request_authorize_url', 'authorize' );
+			return $this->get_server()->urlAuthorization();
 		}
 
 		/**
@@ -297,438 +734,67 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 		 * @return mixed Access URL or error
 		 */
 		function request_access_url() {
-			return $this->retrieve_and_set_var_from_description( 'request_access_url', 'access' );
+			return $this->get_server()->urlTokenCredentials();
 		}
 
 		/**
-		 * Retrieves the OAuth authentication object from the JSON description object
+		 * Retrieves the API Description object
 		 *
 		 * @since  0.1.0
 		 *
-		 * @return mixed Authentication object
-		 */
-		function auth_object() {
-			return $this->retrieve_and_set_var_from_description( 'auth_object' );
-		}
-
-		/**
-		 * Handles bulding an http query without ommitting empty values
-		 * @since  0.1.4
-		 * @param  mixed  $args Array, object or string
-		 * @return string       http query string with all values in-tact
-		 */
-		public function http_build_query( $args ) {
-			$null_replaced = $this->replace_null_values( $args );
-			if ( ! is_array( $null_replaced ) ) {
-				return $args;
-			}
-
-			$null_replaced_string = str_replace(
-				'replacemeemptystringreplaceme',
-				'',
-				http_build_query( $null_replaced )
-			);
-
-			return $null_replaced_string;
-		}
-
-		/**
-		 * Recursively replaces empty values in an array with placeholders.
-		 * This is so that http_build_query does not ommit empty values.
-		 * @since  0.1.4
-		 * @param  mixed  $args Array, object or string
-		 * @return mixed        Array with temporarily modified values.
-		 */
-		public function replace_null_values( $args ) {
-			if ( ! is_array( $args ) && ! is_object( $args ) ) {
-				return $args;
-			}
-
-			$new_args = array();
-			foreach ( $args as $key => $value ) {
-				if ( is_array( $value ) || is_object( $value ) ) {
-					$new_args[ $key ] = $this->replace_null_values( $value );
-				} elseif (
-					null === $value
-					|| '' === $value
-					|| false === $value
-				) {
-					$new_args[ $key ] = 'replacemeemptystringreplaceme';
-				} else {
-					$new_args[ $key ] = $value;
-				}
-			}
-
-			return $new_args;
-		}
-
-		/**
-		 * Builds request's 'OAuth' authentication arguments
-		 *
-		 * @since  0.1.0
-		 *
-		 * @param  array $args Optional additional arguments
-		 *
-		 * @return array       Request arguments array
-		 */
-		function request_args( $header_args = array() ) {
-			// Set our oauth data
-			$this->request_args = wp_parse_args( $header_args, array(
-				'oauth_consumer_key'     => $this->args['consumer_key'],
-				'oauth_signature_method' => 'HMAC-SHA1',
-				'oauth_timestamp'        => time(),
-				'oauth_version'          => $this->auth_object()->version,
-			) );
-
-			require_once( ABSPATH . WPINC . '/pluggable.php' );
-
-			// create our nonce
-			$this->request_args['oauth_nonce'] = wp_create_nonce( md5( serialize( array_merge( array( 'method' => $this->get_method() ), $this->request_args ) ) ) );
-
-			// create our unique oauth signature
-			$this->request_args['oauth_signature'] = $this->oauth_signature( $this->request_args );
-
-			return $this->request_args;
-		}
-
-		/**
-		 * Creates an oauth signature for the api call.
-		 *
-		 * @since  0.1.0
-		 *
-		 * @return string|WP_Error Unique Oauth signature or error
-		 */
-		function oauth_signature( $args ) {
-			if ( isset( $args['oauth_signature'] ) ) {
-				unset( $args['oauth_signature'] );
-			}
-
-			$args = $this->normalize_and_sort( $args, __( 'Signature', 'wds-wp-rest-api-connect' ) );
-
-			if ( is_wp_error( $args ) ) {
-				return $args;
-			}
-
-			$query_string = $this->create_signature_string( $args );
-
-			$string_to_sign = $this->get_method() . '&' . rawurlencode( $this->endpoint_url ) . '&' . $query_string;
-
-			$this->args['oauth_token_secret'] = array_key_exists( 'oauth_token_secret', $args )
-				? $args['oauth_token_secret']
-				: $this->args['oauth_token_secret'];
-
-			$composite_key = rawurlencode( $this->args['consumer_secret'] ) .'&'. rawurlencode( $this->args['oauth_token_secret'] );
-
-			return base64_encode( hash_hmac( 'sha1', $string_to_sign, $composite_key, true ) );
-		}
-
-		/**
-		 * Creates a signature string from all query parameters
-		 *
-		 * @since  0.1.1
-		 * @param  array  $params Array of query parameters
-		 * @return string         Signature string
-		 */
-		public function create_signature_string( $params ) {
-			return implode( '%26', $this->join_with_equals_sign( $params ) ); // join with ampersand
-		}
-
-		/**
-		 * Normalize array keys and values and then sort array
-		 *
-		 * @since  0.1.2
-		 *
-		 * @param  array  $args  Array to be normalized and sorted
-		 * @param  string $label "Invalid X" Label for WP_Error message.
-		 *
-		 * @return array|WP_Error Modified array or error if failed to sort.
-		 */
-		public function normalize_and_sort( $args, $label ) {
-			// normalize parameter key/values
-			array_walk_recursive( $args, array( $this, 'normalize_parameters' ) );
-
-			// sort parameters
-			if ( ! uksort( $args, 'strcmp' ) ) {
-				return new WP_Error( 'rest_oauth1_failed_parameter_sort', sprintf( __( 'Invalid %s - failed to sort parameters', 'wds-wp-rest-api-connect' ), $label ), array( 'status' => 401 ) );
-			}
-
-			return $args;
-		}
-
-		/**
-		 * Normalize each parameter by assuming each parameter may have already been encoded, so attempt to decode, and then
-		 * re-encode according to RFC 3986
-		 *
-		 * @since 0.1.0
-		 *
-		 * @see   rawurlencode()
-		 * @param string $key
-		 * @param string $value
-		 */
-		protected function normalize_parameters( &$key, &$value ) {
-			$key   = rawurlencode( rawurldecode( $key ) );
-			$value = rawurlencode( rawurldecode( $value ) );
-		}
-
-		/**
-		 * Creates an array of urlencoded strings out of each array key/value pairs
-		 *
-		 * @since  0.1.1
-		 * @param  array  $params       Array of parameters to convert.
-		 * @param  array  $query_params Array to extend.
-		 * @param  string $key          Optional Array key to append
-		 * @return string               Array of urlencoded strings
-		 */
-		public function join_with_equals_sign( $params, $query_params = array(), $key = '' ) {
-			foreach ( $params as $param_key => $param_value ) {
-				if ( is_array( $param_value ) ) {
-					$query_params = $this->join_with_equals_sign( $param_value, $query_params, $param_key );
-				} else {
-					if ( $key ) {
-						$param_key = $key . '[' . $param_key . ']'; // Handle multi-dimensional array
-					}
-					$string = $param_key . '=' . $param_value; // join with equals sign
-					$query_params[] = urlencode( $string );
-				}
-			}
-			return $query_params;
-		}
-
-		/**
-		 * Creates a string out of the header arguments array
-		 * @since  0.1.0
-		 * @param  array  $params  Header arguments array
-		 * @return string|WP_Error Header arguments array in string format or error
-		 */
-		protected function authorize_header_string( $oauth ) {
-			$header = '';
-
-			$oauth = $this->normalize_and_sort( $oauth, __( 'Header String', 'wds-wp-rest-api-connect' ) );
-
-			if ( is_wp_error( $oauth ) ) {
-				return $oauth;
-			}
-
-			$header .= implode( ', ', $this->join_with_equals_sign( $oauth ) );
-
-			return $header;
-		}
-
-		/**
-		 * Retrieves a key from the JSON description object and sets a class property
-		 *
-		 * @since  0.1.0
-		 *
-		 * @param  string  $var   Description key to retrieve
-		 * @param  sring   $route Authentication object to retrieve
-		 *
-		 * @return mixed          Value requested
-		 */
-		public function retrieve_and_set_var_from_description( $var, $route = '' ) {
-			if ( isset( $this->{$var} ) && $this->{$var} ) {
-				return $this->{$var};
-			}
-			if ( ! $this->json_desc ) {
-				$desc = $this->get_api_description();
-				if ( is_wp_error( $desc ) ) {
-					return $desc;
-				}
-			}
-
-			if ( empty( $this->json_desc->authentication ) || empty( $this->json_desc->authentication->oauth1 ) ) {
-				return $this->oauth_not_enabled_msg();
-			}
-
-			if ( $route && empty( $this->json_desc->authentication->oauth1->{$route} ) ) {
-				return $this->oauth_not_enabled_msg();
-			}
-
-			$this->{$var} = $route ? $this->json_desc->authentication->oauth1->{$route} : $this->json_desc->authentication->oauth1;
-
-			return $this->{$var};
-		}
-
-		/**
-		 * Retrieves the Description object
-		 *
-		 * @since  0.1.0
-		 *
-		 * @return object  Description object for json_url
+		 * @return object  Description object for api_url
 		 */
 		public function get_api_description() {
+			if ( ! $this->client_key ) {
+				return new WP_Error( 'wp_rest_api_missing_client_data', __( 'Missing client key.', 'wds-wp-rest-api-connect' ), $this->args() );
+			}
+
 			if ( ! $this->json_desc ) {
-				if ( ! $this->cache_api_description_for_json_url() ) {
-					return $this->connection_failed_msg();
+				if ( ! $this->cache_api_description_for_api_url() ) {
+					return new WP_Error( 'wp_rest_api_connection_failed_error', __( 'There was a problem connecting to the API URL specified.', 'wds-wp-rest-api-connect' ), $this->args() );
 				}
 			}
 			return $this->json_desc;
 		}
 
 		/**
-		 * Fetches and caches the Description object
+		 * Fetches and caches the API Description object
 		 *
 		 * @since  0.1.0
 		 *
-		 * @return mixed  Description object for json_url
+		 * @return mixed  Description object for api_url
 		 */
-		public function cache_api_description_for_json_url() {
-			$transient_id = 'apiconnect_desc_'. $this->option_key;
-
-			if ( ! isset( $_GET['delete-trans'] ) && $this->json_desc = get_transient( $transient_id ) ) {
+		public function cache_api_description_for_api_url() {
+			if ( ! isset( $_GET['delete-trans'] ) && $this->json_desc = $this->transient->get() ) {
 				return $this->json_desc;
 			}
 
-			$this->response = wp_remote_get( $this->args['json_url'], array(
-				'headers' => $this->args['headers'],
+			$this->response = wp_remote_get( $this->api_url, array(
+				'headers' => $this->headers,
 			) );
 
 			$body  = wp_remote_retrieve_body( $this->response );
 			$error = false;
 
 			if ( ! $body || ( isset( $this->response['response']['code'] ) && 200 != $this->response['response']['code'] ) ) {
-				$error = sprintf( __( 'Could not retrive body from URL: "%s"', 'wds-wp-rest-api-connect' ), $this->args['json_url'] );
+				$error = sprintf( __( 'Could not retrive body from URL: "%s"', 'wds-wp-rest-api-connect' ), $this->api_url );
 
 				$this->update_stored_error( $error );
 
 				if ( defined( 'WP_DEBUG' ) ) {
 					error_log( 'error: '. $error );
-					error_log( 'request args: '. print_r( $this->args, true ) );
+					error_log( 'request args: '. print_r( $this->args(), true ) );
 					error_log( 'request response: '. print_r( $this->response, true ) );
-					// throw new Exception( $error );
 				}
 			}
 
 			$this->json_desc = $this->is_json( $body );
 
 			if ( ! $error && $this->json_desc ) {
-				set_transient( $transient_id, $this->json_desc, HOUR_IN_SECONDS );
+				$this->transient->set( $this->json_desc );
 			}
 
 			return $this->json_desc;
-		}
-
-		/**
-		 * Get stored token data from option for json_url
-		 *
-		 * @since  0.1.0
-		 *
-		 * @param  string  $param Get a specific token key value
-		 *
-		 * @return mixed|false    Value of token or false
-		 */
-		public function get_url_access_token_data( $param = '' ) {
-			$tokens = $this->get_option( 'tokens' );
-			if ( ! empty( $tokens ) && $param ) {
-				return array_key_exists( $param, $tokens )
-					? $tokens[ $param ]
-					: false;
-			}
-			return $tokens;
-		}
-
-		/**
-		 * Retrieve required token for authorization url
-		 *
-		 * @since  0.1.0
-		 *
-		 * @return mixed Array of token data or error
-		 */
-		public function get_token() {
-			if ( $this->token_response ) {
-				return $this->token_response;
-			}
-
-			$this->set_method( 'POST' );
-
-			if ( ! ( $this->endpoint_url = $this->request_token_url() ) ) {
-				return new WP_Error( 'wp_rest_api_request_token_error', __( 'Could not retrieve request token url from api description.', 'wds-wp-rest-api-connect' ) );
-			}
-
-			if ( is_wp_error( $this->endpoint_url ) ) {
-				return $this->endpoint_url;
-			}
-
-			$args = array(
-				'headers' => $this->args['headers'],
-				'body'    => $this->request_args(),
-			);
-			$this->response = wp_remote_post( esc_url( $this->endpoint_url ), $args );
-
-			if ( is_wp_error( $this->response ) ) {
-				return $this->response;
-			}
-
-			if ( ! isset( $this->response['response']['code'] ) || 200 != $this->response['response']['code'] ) {
-				return new WP_Error( 'wp_rest_api_request_token_error', sprintf( __( 'There was an error retrieving the token from %s.', 'wds-wp-rest-api-connect' ), $this->endpoint_url ), array( 'response' => $this->response, 'request_args' => $args ) );
-			}
-
-			$body = wp_remote_retrieve_body( $this->response );
-			if ( ! $body ) {
-				return new WP_Error( 'wp_rest_api_request_token_error', sprintf( __( 'Could not retrive body from %s.', 'wds-wp-rest-api-connect' ), $this->endpoint_url ) );
-			}
-
-			$this->token_response = $this->get_json_if_json( $body );
-
-			return $this->token_response;
-		}
-
-		/**
-		 * Stores data retrieved by the authorization step
-		 *
-		 * @since  0.1.0
-		 *
-		 * @param  array $request_args Additional request arguments
-		 *
-		 * @return array|false Array of updated token data or false
-		 */
-		public function store_token_and_secret( $request_args ) {
-			$this->set_method( 'POST' );
-
-			if ( ! ( $this->endpoint_url = $this->request_access_url() ) ) {
-				return false;
-			}
-
-			$args = array(
-				'headers' => $this->args['headers'],
-				'body'    => $this->request_args( $request_args ),
-			);
-			$this->response = wp_remote_post( esc_url( $this->endpoint_url ), $args );
-			$body           = wp_remote_retrieve_body( $this->response );
-
-			if ( ! isset( $this->response['response']['code'] ) || 200 != $this->response['response']['code'] ) {
-				return;
-			}
-
-			$token_array = array_merge( $args['body'], $this->parse_str( $body ) );
-
-			if ( isset( $token_array['oauth_token'], $token_array['oauth_verifier'], $token_array['oauth_token_secret'] ) ) {
-				$this->update_url_access_tokens( $token_array );
-			}
-
-			return $token_array;
-		}
-
-		/**
-		 * Update option store for oauth tokens for this url
-		 *
-		 * @since  0.1.0
-		 *
-		 * @param  array $args Arguments to check against
-		 *
-		 * @return array       Oauth tokens
-		 */
-		public function update_url_access_tokens( $args ) {
-			$tokens = array_intersect_key( $args, array(
-				'oauth_token' => '',
-				'oauth_token_secret' => '',
-				'oauth_verifier' => '',
-			) );
-
-			if ( ! empty( $tokens ) ) {
-				$this->update_option( 'tokens', $tokens );
-			}
-
-			return $tokens;
 		}
 
 		/**
@@ -742,25 +808,14 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 		 *
 		 * @return mixed           Value of option requested
 		 */
-		public function get_option( $option, $key = '', $force = false ) {
-
-			if ( empty( $this->options ) || $force ) {
-				$this->options = get_option( $this->option_key, array() );
+		public function get_option( $option = 'all' ) {
+			if ( $this->key() ) {
+				try {
+					return $this->store->get( $option );
+				} catch ( Exception $e ) {
+				}
 			}
-
-			if ( 'all' == $option ) {
-				return $this->options;
-			}
-
-			if ( ! array_key_exists( $option, $this->options ) || ! $this->options[ $option ] ) {
-				return false;
-			}
-
-			if ( ! $key ) {
-				return $this->options[ $option ];
-			}
-
-			return array_key_exists( $key, $this->options[ $option ] ) ? $this->options[ $option ][ $key ] : false;
+			return array();
 		}
 
 		/**
@@ -770,61 +825,16 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 		 *
 		 * @param  string  $option Option array key
 		 * @param  mixed   $value  Value to be updated
-		 * @param  string  $key    Key for secondary array
+		 * @param  boolean $set    Whether to set the updated value in the DB.
+		 *
+		 * @return                 Original $value if successful
 		 */
-		public function update_option( $option, $value, $key = '' ) {
-			$this->get_option( 'all' );
-
-			if ( $key ) {
-				$this->options[ $option ][ $key ] = $value;
-			} else {
-				$this->options[ $option ] = $value;
-			}
-
-			$this->do_update();
-		}
-
-		/**
-		 * Peform the option saving
-		 *
-		 * @since  0.1.0
-		 *
-		 * @return bool  Whether option was properly updated
-		 */
-		public function do_update() {
-			if ( get_option( $this->option_key ) ) {
-				$updated = update_option( $this->option_key, $this->options );
-			} else {
-				$updated = add_option( $this->option_key, $this->options, '', 'no' );
-			}
-
-			return $updated;
-		}
-
-		/**
-		 * Delete an option or specific array value
-		 *
-		 * @since  0.1.0
-		 *
-		 * @param  string  $option Option array key
-		 * @param  string  $key    Key for secondary array
-		 *
-		 * @return bool            Whether option was deleted
-		 */
-		public function delete_option( $option, $key = '' ) {
-			$this->get_option( 'all' );
-			if ( $key ) {
-				if ( array_key_exists( $option, $this->options ) && array_key_exists( $key, $this->options[ $option ] ) ) {
-					unset( $this->options[ $option ][ $key ] );
-					return $this->do_update();
-				}
+		public function update_option( $option, $value, $set = true ) {
+			try {
+				return $this->store->update( $value, $option, '', $set );
+			} catch ( Exception $e ) {
 				return false;
 			}
-			if ( array_key_exists( $option, $this->options ) ) {
-				unset( $this->options[ $option ] );
-				return $this->do_update();
-			}
-			return false;
 		}
 
 		/**
@@ -834,13 +844,64 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 		 *
 		 * @return bool  Result of delete_option
 		 */
-		public function delete_entire_option() {
-			delete_transient( 'apiconnect_desc_'. $this->option_key );
-			return delete_option( $this->option_key );
+		public function delete_option( $option = '' ) {
+			try {
+				$this->transient->delete();
+				return $this->store->delete( $option );
+			} catch ( Exception $e ) {
+				return false;
+			}
 		}
 
 		/**
-		 * Updates/replaces the wp_rest_api_connect_error option
+		 * Fetches the wp_rest_api_connect_error message.
+		 *
+		 * @since  0.1.3
+		 *
+		 * @return string Stored error message value.
+		 */
+		public function get_stored_error_message() {
+			$errors = $this->get_stored_error();
+			return isset( $errors['message'] ) ? $errors['message'] : '';
+		}
+
+		/**
+		 * Fetches the wp_rest_api_connect_error request_args.
+		 *
+		 * @since  0.1.3
+		 *
+		 * @return string Stored error request_args value.
+		 */
+		public function get_stored_error_request_args() {
+			$errors = $this->get_stored_error();
+			return isset( $errors['request_args'] ) ? $errors['request_args'] : '';
+		}
+
+		/**
+		 * Fetches the wp_rest_api_connect_error request_response.
+		 *
+		 * @since  0.1.3
+		 *
+		 * @return string Stored error request_response value.
+		 */
+		public function get_stored_error_request_response() {
+			$errors = $this->get_stored_error();
+			return isset( $errors['request_response'] ) ? $errors['request_response'] : '';
+		}
+
+		/**
+		 * Fetches the wp_rest_api_connect_error option value.
+		 *
+		 * @since  0.1.3
+		 *
+		 * @return mixed  wp_rest_api_connect_error option value.
+		 */
+		public function get_stored_error() {
+			return $this->error_store->get();
+		}
+
+		/**
+		 * Updates/replaces the wp_rest_api_connect_error option.
 		 *
 		 * @since  0.1.3
 		 *
@@ -849,15 +910,21 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 		 * @return void
 		 */
 		public function update_stored_error( $error = '' ) {
-			delete_option( 'wp_rest_api_connect_error' );
-
-			if ( ! is_null( $error ) ) {
-				add_option( 'wp_rest_api_connect_error', array(
-					'message'          => $error,
-					'request_args'     => print_r( $this->args, true ),
+			if ( '' !== $error ) {
+				$this->error_store->set( array(
+					'message'          => is_wp_error( $error ) ? $error->get_error_message() : $error,
+					'request_args'     => print_r( $this->args(), true ),
 					'request_response' => print_r( $this->response, true ),
-				), '', 'no' );
+				) );
+
+				return ! is_wp_error( $error )
+					? new WP_Error( 'wp_rest_api_connect_error', $error, $this->args() )
+					: $error;
+			} else {
+				$this->delete_stored_error();
 			}
+
+			return true;
 		}
 
 		/**
@@ -867,23 +934,18 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 		 *
 		 * @return mixed  wp_rest_api_connect_error option value
 		 */
-		public function get_stored_error() {
-			return get_option( 'wp_rest_api_connect_error' );
+		public function delete_stored_error() {
+			return $this->error_store->delete();
 		}
 
 		/**
-		 * Parses a string into an array
+		 * Deletes all stored data for this connection.
 		 *
-		 * @since  0.1.0
-		 *
-		 * @param  string  $string String to parse
-		 *
-		 * @return array           Parsed array
+		 * @since  0.2.0
 		 */
-		public function parse_str( $string ) {
-			$array = array();
-			parse_str( $string, $array );
-			return (array) $array;
+		public function reset_connection() {
+			$deleted = $this->delete_option();
+			return $deleted && $this->delete_stored_error();
 		}
 
 		/**
@@ -917,52 +979,6 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 		}
 
 		/**
-		 * Get current request method
-		 *
-		 * @since  0.1.1
-		 *
-		 * @return string Request method
-		 */
-		public function get_method() {
-			return $this->method ? $this->method : 'GET';
-		}
-
-		/**
-		 * Set request method
-		 *
-		 * @since 0.1.1
-		 *
-		 * @param string $method Request method
-		 *
-		 * @return string        New request method
-		 */
-		public function set_method( $method ) {
-			return $this->method = $method;
-		}
-
-		/**
-		 * Handles outputting a WP_Error for when the OAuth plugin is not active on the client site
-		 *
-		 * @since  0.1.0
-		 *
-		 * @return WP_Error object
-		 */
-		public function oauth_not_enabled_msg() {
-			return new WP_Error( 'wp_rest_api_oauth_not_enabled_error', __( "Could not locate OAuth information; are you sure it's enabled?", 'wds-wp-rest-api-connect' ) );
-		}
-
-		/**
-		 * Handles outputting a WP_Error for when their is a connection issue
-		 *
-		 * @since  0.1.0
-		 *
-		 * @return WP_Error object
-		 */
-		public function connection_failed_msg() {
-			return new WP_Error( 'wp_rest_api_connection_failed_error', __( 'There was a problem connecting to the API URL specified.', 'wds-wp-rest-api-connect' ) );
-		}
-
-		/**
 		 * Magic getter for our object.
 		 *
 		 * @param string $field
@@ -973,20 +989,20 @@ if ( ! class_exists( 'WDS_WP_REST_API_Connect' ) ) :
 		 */
 		public function __get( $field ) {
 			switch ( $field ) {
-				case 'json_desc':
-				case 'args':
-				case 'option_key':
-				case 'response':
-				case 'response_code':
-				case 'method':
 				case 'key':
-				case 'option_key':
-					return $this->{$field};
-				case 'json_url':
-				case 'consumer_key':
-				case 'consumer_secret':
+				case 'client_key':
+				case 'client_secret':
+				case 'api_url':
 				case 'headers':
-					return $this->args[ $field ];
+				case 'callback_uri':
+				case 'access_token':
+				case 'access_token_secret':
+				case 'endpoint_url':
+				case 'method':
+					return $this->{$field};
+				case 'token_credentials':
+				case 'auth_urls':
+					return $this->get_option( 'auth_urls' );
 				default:
 					throw new Exception( 'Invalid property: ' . $field );
 			}

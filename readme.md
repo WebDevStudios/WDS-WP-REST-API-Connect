@@ -1,97 +1,49 @@
-WDS WP REST API Connect [![Scrutinizer Code Quality](http://img.shields.io/scrutinizer/g/WebDevStudios/WDS-WP-JSON-API-Connect.svg?style=flat)](https://scrutinizer-ci.com/g/WebDevStudios/WDS-WP-JSON-API-Connect/)
+WDS WP REST API Connect (v0.2.0) [![Scrutinizer Code Quality](http://img.shields.io/scrutinizer/g/WebDevStudios/WDS-WP-JSON-API-Connect.svg?style=flat)](https://scrutinizer-ci.com/g/WebDevStudios/WDS-WP-JSON-API-Connect/)
 =========
 
-A tool for connecting to the [JSON-based REST API for WordPress](https://github.com/WP-API/WP-API) via [OAuth 1.0a](https://github.com/WP-API/OAuth1).
+A tool for connecting to the [REST API for WordPress](https://github.com/WP-API/WP-API) via [OAuth 1.0a](https://github.com/WP-API/OAuth1).
 
 To get started, you'll need to install both the [WP REST API plugin](https://github.com/WP-API/WP-API) and the [OAuth plugin](https://github.com/WP-API/OAuth1).
 
-Once installed and activated, you'll need to create a '[Consumer](https://github.com/WP-API/client-cli#step-1-creating-a-consumer)'.
-When you have the Consumer key and secret, you'll create a new WDS_WP_REST_API_Connect object by passing those credentials along with the REST API URL:
+To use this library, you will need to run `composer install` from the root of the library, and then include the main library file, `wds-wp-rest-api-connect.php` from your plugin/theme.
+
+Once installed and activated, you'll need to create a '[Client Application](http://v2.wp-api.org/guide/authentication/#oauth-authentication)'.
+When you have the Client key and secret, you'll create a new `WDS_WP_REST_API\OAuth1\Connect` object by passing those credentials along with the REST API URL and the registered callback URL:
 ```php
-// Consumer credentials
-$consumer = array(
-	'consumer_key'    => 'YOUR CONSUMER KEY',
-	'consumer_secret' => 'YOUR CONSUMER SECRET',
-	'json_url'        => 'REST API URL OF SITE',
+// Get the connect object
+$api_connect = new WDS_WP_REST_API\OAuth1\Connect();
+
+// Client credentials
+$client = array(
+
+	// Library will 'discover' the API url
+	'api_url' => 'WP SITE URL TO CONNECT TO',
+
+	// App credentials set up on the server
+	'client_key' => 'YOUR CLIENT KEY',
+	'client_secret' => 'YOUR CLIENT SECRET',
+
+	// Must match stored callback URL setup on server.
+	'callback_uri' => admin_url() . '?api-connect',
 );
-$api = new WDS_WP_REST_API_Connect( $consumer );
-```
 
-You can then use this object to retrieve the authentication request URL, or if you have been authenticated, make requests.
-
-```php
-<?php
-
-require_once( 'wds-wp-rest-api-connect.php' );
-
-/**
- * Example WDS_WP_REST_API_Connect usage
+/*
+ * Initate the API connection.
+ *
+ * if the oauth connection is not yet authorized, (and autoredirect_authoriziation
+ * is not explicitly set to false) you will be auto-redirected to the other site to
+ * receive authorization.
  */
-function wp_json_api_connect_example_test() {
+$discovery = $api_connect->init( $client );
 
-	// Consumer credentials
-	$consumer = array(
-		'consumer_key'    => 'YOUR CONSUMER KEY',
-		'consumer_secret' => 'YOUR CONSUMER SECRET',
-		'json_url'        => 'REST API URL OF SITE',
-	);
-
-	$api = new WDS_WP_REST_API_Connect( $consumer );
-
-	$auth_url = $api->get_authorization_url( array( 'test_api' => $_GET['test_api'] ) );
-
-	// Only returns URL if not yet authenticated
-	if ( $auth_url ) {
-		echo '<div id="message" class="updated">';
-		echo '<p><a href="'. esc_url( $auth_url ) .'" class="button">Authorize Connection</a></p>';
-		echo '</div>';
-
-		// Do not proceed
-		return;
-	}
-
-	$post_id_to_view = 1;
-	$response = $api->auth_get_request( 'wp/v2/posts/'. $post_id_to_view );
-
-	if ( is_wp_error( $response ) ) {
-
-		echo '<div id="message" class="error">';
-		echo wpautop( $response->get_error_message() );
-		echo '</div>';
-
-	} else {
-
-		echo '<div id="message" class="updated">';
-		echo '<p><strong>'. $response['title'] .' retrieved!</strong></p>';
-		echo '<xmp>auth_get_request $response: '. print_r( $response, true ) .'</xmp>';
-		echo '</div>';
-
-	}
-
-	$post_id_to_update = 1;
-	$updated_data = array( 'title' => 'Hello REST API World!' );
-	$response = $api->auth_post_request( 'wp/v2/posts/'. $post_id_to_update, $updated_data );
-
-	if ( is_wp_error( $response ) ) {
-
-		echo '<div id="message" class="error">';
-		echo wpautop( $response->get_error_message() );
-		echo '</div>';
-
-	} else {
-
-		echo '<div id="message" class="updated">';
-		echo '<p><strong>Post updated!</strong></p>';
-		echo '<xmp>auth_post_request $response: '. print_r( $response, true ) .'</xmp>';
-		echo '</div>';
-
-	}
-
-}
-add_action( 'all_admin_notices', 'wp_json_api_connect_example_test' );
 ```
+
+You can then use this object to retrieve the authentication request URL, or if you have been authenticated, make requests. To see a full example, view [the included example.php file](https://github.com/WebDevStudios/WDS-WP-REST-API-Connect/blob/master/example.php).
 
 ## Changelog
+
+### 0.2.0
+* Complete rewrite. Breaks backwards-compatibility, but previous version will not work with the newest version of the [WordPress OAuth](https://github.com/WP-API/OAuth1) plugin. Please review the [WP-API Authentication documentation](http://v2.wp-api.org/guide/authentication/#oauth-authentication).
 
 ### 0.1.5
 * Remove autoload from composer.json (for now).

@@ -17,6 +17,14 @@
         "source": "https://github.com/WebDevStudios/WDS-WP-REST-API-Connect"
     },
     "require": {
-        "php": ">5.3"
+        "php": ">5.3",
+        "league/oauth1-client": "^1.6",
+        "wp-api/discovery": "dev-master"
+    },
+    "autoload": {
+        "psr-4": {
+            "WP_REST\\ExampleClient\\": "lib/"
+        },
+        "classmap": ["lib"]
     }
 }
