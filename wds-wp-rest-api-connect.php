@@ -942,7 +942,7 @@ if ( ! class_exists( 'WDS_WP_REST_API\OAuth1\Connect' ) ) :
 		 */
 		public function reset_connection() {
 			$deleted = $this->delete_option();
-			return $deleted && $this->delete_stored_error();
+			return $this->delete_stored_error() && $deleted;
 		}
 
 		/**
