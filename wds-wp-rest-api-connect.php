@@ -10,9 +10,6 @@ use WDS_WP_REST_API\OAuth1\WPServer;
 
 if ( ! class_exists( 'WDS_WP_REST_API\OAuth1\Connect' ) ) :
 
-	// Make sure you run `composer install`!
-	require_once dirname( __FILE__ ) . '/vendor/autoload.php';
-
 	/**
 	 * Connect to the WordPress REST API over OAuth1
 	 *
