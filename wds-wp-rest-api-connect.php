@@ -493,6 +493,18 @@ if ( ! class_exists( 'WDS_WP_REST_API\OAuth1\Connect' ) ) :
 		}
 
 		/**
+		 * Sets the headers object property
+		 *
+		 * @since 0.2.0
+		 *
+		 * @param string  $value Value to set
+		 */
+		public function set_headers( $headers ) {
+			$this->headers = $headers;
+			return $this->headers;
+		}
+
+		/**
 		 * Sets the client_key object property
 		 *
 		 * @since 0.2.0
@@ -501,7 +513,7 @@ if ( ! class_exists( 'WDS_WP_REST_API\OAuth1\Connect' ) ) :
 		 */
 		public function set_client_key( $value ) {
 			$this->client_key = $value;
-			return $this->consume;
+			return $this->client_key;
 		}
 
 		/**
@@ -513,7 +525,7 @@ if ( ! class_exists( 'WDS_WP_REST_API\OAuth1\Connect' ) ) :
 		 */
 		public function set_client_secret( $value ) {
 			$this->client_secret = $value;
-			return $this->consume;
+			return $this->client_secret;
 		}
 
 		/**
@@ -549,7 +561,7 @@ if ( ! class_exists( 'WDS_WP_REST_API\OAuth1\Connect' ) ) :
 		 */
 		public function set_endpoint_url( $value ) {
 			$this->endpoint_url = $value;
-			return $this->endpoin;
+			return $this->endpoint_url;
 		}
 
 		/**
@@ -562,7 +574,8 @@ if ( ! class_exists( 'WDS_WP_REST_API\OAuth1\Connect' ) ) :
 		 * @return string        New request method
 		 */
 		public function set_method( $method ) {
-			return $this->method = $method;
+			$this->method = $method;
+			return $this->method;
 		}
 
 		/**
