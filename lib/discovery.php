@@ -1,7 +1,7 @@
 <?php
 namespace WDS_WP_REST_API;
 
-use WordPress\Discovery\Site;
+use WDS_WP_REST_API\Discover\Site;
 use Exception;
 use Requests;
 use Requests_Exception_HTTP;
