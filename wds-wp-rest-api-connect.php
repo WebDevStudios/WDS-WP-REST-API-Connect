@@ -7,6 +7,7 @@ use WP_Error;
 use WDS_WP_REST_API\Storage\Store_Interface;
 use WDS_WP_REST_API\Storage\Transient_Interface;
 use WDS_WP_REST_API\OAuth1\WPServer;
+use WDS_WP_REST_API\Discover;
 
 if ( ! class_exists( 'WDS_WP_REST_API\OAuth1\Connect' ) ) :
 
@@ -186,7 +187,12 @@ if ( ! class_exists( 'WDS_WP_REST_API\OAuth1\Connect' ) ) :
 			$url = esc_url_raw( $url ? $url : $this->api_url );
 
 			try {
-				$site = \WordPress\Discovery\discover( $url );
+				$args = ! empty( $this->headers )
+					? array( 'headers' => $this->headers )
+					: array();
+
+				$disover = new Discover( $url, $args );
+				$site = $disover->site();
 			}
 			catch ( Exception $e ) {
 				$msg = sprintf( __( 'There is a problem with the provided api_url parameter. %s.' ), htmlspecialchars( $e->getMessage() ) );
