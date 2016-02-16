@@ -48,6 +48,10 @@ You can then use this object to retrieve the authentication request URL, or if y
 
 ## Changelog
 
+### 0.2.2
+* Add set_headers method to be able to set headers for discovery.
+* Use our own API Discovery library to use the WP http API, and to correctly pass any headers if they exist.
+
 ### 0.2.1
 * Bug fix: Fix the order of checks in the reset_connection method to ensure the delete_stored_error method is always called.
 
