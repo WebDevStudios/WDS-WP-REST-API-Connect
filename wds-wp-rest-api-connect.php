@@ -25,7 +25,7 @@ if ( ! class_exists( 'WDS_WP_REST_API\OAuth1\Connect' ) ) :
 	 *
 	 * @author  Justin Sternberg <justin@webdevstudios.com>
 	 * @package Connect
-	 * @version 0.2.1
+	 * @version 0.2.2
 	 */
 	class Connect {
 
