@@ -19,7 +19,7 @@
     "require": {
         "php": ">5.3",
         "league/oauth1-client": "^1.6",
-        "wp-api/discovery": "dev-master#a9b98d5b4c040f1f2efdd526eab2dcde2d40c270"
+        "rmccue/requests": "^1.6"
     },
     "autoload": {
         "psr-4": {

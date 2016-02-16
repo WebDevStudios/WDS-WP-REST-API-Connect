@@ -4,8 +4,8 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "hash": "6b056e5b3e5ace4c0129a940ede634c1",
-    "content-hash": "833448a7c4c1e28230246c26599c9cb5",
+    "hash": "56016c036b4eade11468625892fde5dd",
+    "content-hash": "7096133aba4be75a11ad97ca4c482255",
     "packages": [
         {
             "name": "guzzle/guzzle",
@@ -273,46 +273,12 @@
             "description": "Symfony EventDispatcher Component",
             "homepage": "https://symfony.com",
             "time": "2016-01-13 10:28:07"
-        },
-        {
-            "name": "wp-api/discovery",
-            "version": "dev-master",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/WP-API/discovery-php.git",
-                "reference": "a9b98d5b4c040f1f2efdd526eab2dcde2d40c270"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/WP-API/discovery-php/zipball/a9b98d5b4c040f1f2efdd526eab2dcde2d40c270",
-                "reference": "a9b98d5b4c040f1f2efdd526eab2dcde2d40c270",
-                "shasum": ""
-            },
-            "require": {
-                "rmccue/requests": "^1.6"
-            },
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "WordPress\\Discovery\\": "lib/"
-                },
-                "files": [
-                    "lib/namespace.php"
-                ]
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "time": "2015-12-08 13:07:17"
         }
     ],
     "packages-dev": [],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {
-        "wp-api/discovery": 20
-    },
+    "stability-flags": [],
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {
