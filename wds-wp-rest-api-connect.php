@@ -65,7 +65,8 @@ if ( ! class_exists( 'WDS_WP_REST_API\OAuth1\Connect' ) ) :
 		protected $method  = 'GET';
 
 		public $json_desc = '';
-		public $response  = '';
+		public $response;
+		public $response_code;
 
 		/**
 		 * Connect object constructor.
@@ -231,13 +232,19 @@ if ( ! class_exists( 'WDS_WP_REST_API\OAuth1\Connect' ) ) :
 				return new WP_Error( 'wp_rest_api_discovery_incomplete', sprintf( __( 'Please call %s.', 'wds-wp-rest-api-connect' ), __CLASS__ . '::do_discovery()' ), $this->args() );
 			}
 
+			if ( ! $this->client_key ) {
+				return new WP_Error( 'wp_rest_api_oauth_temp_credentials_failed', __( 'Missing client key.', 'wds-wp-rest-api-connect' ), $this->args() );
+			}
+
 			$server = $this->get_server();
 			// First part of OAuth 1.0 authentication is retrieving temporary credentials.
 			// These identify you as a client to the server.
 			try {
 				$temp_credentials = $server->getTemporaryCredentials();
 			} catch ( Exception $e ) {
-				return $this->update_stored_error( $e->getMessage() );
+				$error = new WP_Error( 'wp_rest_api_oauth_temp_credentials_failed', sprintf( __( "There was a problem fetching the temporary credentials: %s", 'wds-wp-rest-api-connect' ), $e->getMessage() ), $this->args() );
+
+				return $this->update_stored_error( $error );
 			}
 
 			$this->update_option( 'temp_credentials', $temp_credentials );
@@ -344,16 +351,23 @@ if ( ! class_exists( 'WDS_WP_REST_API\OAuth1\Connect' ) ) :
 				return $this->update_stored_error( $error );
 			}
 
-			/*
-			 * Third and final part to OAuth 1.0 authentication is to retrieve token
-			 * credentials (formally known as access tokens in earlier OAuth 1.0
-			 * specs).
-			 */
-			$this->update_option(
-				'token_credentials',
-				$server->getTokenCredentials( $temp_credentials, $oauth_token, $oauth_verifier ),
-				false
-			);
+			try {
+				/*
+				 * Third and final part to OAuth 1.0 authentication is to retrieve token
+				 * credentials (formally known as access tokens in earlier OAuth 1.0
+				 * specs).
+				 */
+				$this->update_option(
+					'token_credentials',
+					$server->getTokenCredentials( $temp_credentials, $oauth_token, $oauth_verifier ),
+					false
+				);
+			} catch ( Exception $e ) {
+				$error = new WP_Error( 'wp_rest_api_oauth_do_authorization_failed', sprintf( __( "There was a problem completing authorization: %s", 'wds-wp-rest-api-connect' ), $e->getMessage() ), $this->args() );
+
+				return $this->update_stored_error( $error );
+			}
+
 
 			// Now, we'll store the token credentials and discard the
 			// temporary ones - they're irrelevant at this stage.
@@ -663,45 +677,41 @@ if ( ! class_exists( 'WDS_WP_REST_API\OAuth1\Connect' ) ) :
 
 			$this->endpoint_url = $this->api_url( $path );
 
-			$creds   = $this->get_option( 'token_credentials' );
-			$server  = $this->get_server();
-			$http    = $server->createHttpClient();
-			$headers = $server->getHeaders( $creds, $method, $this->endpoint_url, $request_args );
+			$creds  = $this->get_option( 'token_credentials' );
+			$server = $this->get_server();
 
 			try {
+				$response = $server->request( $this->endpoint_url, $creds, array(
+					'request_args' => $request_args,
+					'method'       => $method,
+				) );
+			} catch ( Exception $e ) {
+				// @todo maybe use Requests_Exception_HTTP
 
-				$request = $http->createRequest( $method, $this->endpoint_url, $headers, $request_args );
-				$response = $request->send();
-
-				$this->response_code = $response->getStatusCode();
-
-				$headers = array();
-				foreach ( $response->getHeaders() as $header ) {
-					$headers[ strtolower( $header->getName() ) ] = (string) $header;
+				if ( $e instanceof BadResponseException ) {
+					$server->response = $e->getResponse();
+					$server->response_code = $server->response->getStatusCode();
+					$body = $server->response->getBody( true );
+				} else {
+					$server->response_code = 'unknown';
+					$body = $server->response = $e->getMessage();
 				}
 
-				$this->response = array(
-					'headers' => $headers,
-					'body'    => $response->getBody( true ),
-					'response' => array(
-						'code'    => $this->response_code,
-						'message' => $response->getReasonPhrase(),
-					),
-				);
+				$error = sprintf( __( "Received error [%s] with status code [%s] when making request.", 'wds-wp-rest-api-connect' ), $body, $server->response_code );
 
-			} catch ( Exception $e ) {
-				$response = $e->getResponse();
-				$body = $response->getBody( true );
-				$this->response_code = $response->getStatusCode();
+				$request_response = new WP_Error( 'wp_rest_api_response_error', $error );
 
-				$this->response = new WP_Error( 'wp_rest_api_response_error',
-					"Received error [$body] with status code [$this->response_code] when making request."
-				);
-
-				return $this->response;
 			}
 
-			return $this->get_json_if_json( wp_remote_retrieve_body( $this->response ) );
+
+			$this->response = $response;
+			$this->response_code = $server->response_code;
+
+			if ( is_wp_error( $response ) ) {
+				return $response;
+			}
+
+			return $this->get_json_if_json( wp_remote_retrieve_body( $response ) );
 		}
 
 		/**

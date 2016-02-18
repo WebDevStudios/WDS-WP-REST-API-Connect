@@ -17,12 +17,27 @@ namespace WDS_WP_REST_API\OAuth1;
 use League\OAuth1\Client\Server\Server;
 use League\OAuth1\Client\Server\User;
 use League\OAuth1\Client\Credentials\TokenCredentials;
+use League\OAuth1\Client\Credentials\TemporaryCredentials;
 use WDS_WP_REST_API\OAuth1\WPSignature;
 
 class WPServer extends Server {
 	protected $baseUri;
 
 	protected $authURLs = array();
+
+	/**
+	 * Guzzle\Http\Message\Response
+	 *
+	 * @var Guzzle\Http\Message\Response
+	 */
+	public $response;
+
+	/**
+	 * If a request was made, the response code will be stored here.
+	 *
+	 * @var string
+	 */
+	public $response_code;
 
 	/**
 	 * {@inheritDoc}
@@ -89,6 +104,150 @@ class WPServer extends Server {
 	}
 
 	/**
+	 * Perform a request (via GuzzleClient)
+	 * @todo   convert to WP http API
+	 *
+	 * @since  0.2.3
+	 *
+	 * @param  string           $uri   URI to request
+	 * @param  TokenCredentials $creds Request method. Defaults to GET
+	 * @param  array            $args  Array of data to send in request.
+	 *
+	 * @return array                   Array of response data, or WP_Error
+	 */
+	public function request( $uri, TokenCredentials $creds, $args = array() ) {
+		$args = wp_parse_args( $args, array(
+			'request_args' => array(),
+			'options'      => array(),
+			'method'       => 'GET',
+		) );
+
+		$headers = $this->getHeaders( $creds, $args['method'], $uri, $args['request_args'] );
+
+		$this->get_response( $uri, array(
+			'method'       => $args['method'],
+			'headers'      => $headers,
+			'request_args' => $args['request_args'],
+			'options'      => $args['options'],
+		) );
+
+
+		$this->response_code = $this->response->getStatusCode();
+
+		$headers = array();
+		foreach ( $this->response->getHeaders() as $header ) {
+			$headers[ strtolower( $header->getName() ) ] = (string) $header;
+		}
+
+		$request_response = array(
+			'headers'  => $headers,
+			'body'     => $this->response->getBody( true ),
+			'response' => array(
+				'code'    => $this->response_code,
+				'message' => $this->response->getReasonPhrase(),
+			),
+		);
+
+		return $request_response;
+	}
+
+	public function get_response( $uri, $args ) {
+
+		$args = wp_parse_args( $args, array(
+			'method'       => 'GET',
+			'headers'      => false,
+			'request_args' => array(),
+			'options'      => array(),
+		) );
+
+		$headers = apply_filters( 'wp_rest_api_request_headers', $args['headers'], $uri );
+		$options = apply_filters( 'wp_rest_api_request_options', $args['options'], $uri );
+		$request_args = apply_filters( 'wp_rest_api_request_request_args', $args['request_args'], $uri );
+
+		$this->response = $this->createHttpClient()
+			->createRequest( $args['method'], $uri, $headers, $request_args, $options )
+			->send();
+
+		return $this->response;
+	}
+
+	/**
+	 * Gets temporary credentials by performing a request to
+	 * the server.
+	 *
+	 * @return TemporaryCredentials
+	 */
+	public function getTemporaryCredentials()
+	{
+		$uri = $this->urlTemporaryCredentials();
+
+		try {
+			$this->get_response( $uri, array(
+				'method'  => 'POST',
+				'headers' => $this->buildHttpClientHeaders( array(
+					'Authorization' => $this->temporaryCredentialsProtocolHeader( $uri ),
+				) ),
+			) );
+		} catch ( \Exception $e ) {
+			if ( $e instanceof BadResponseException ) {
+				return $this->handleTemporaryCredentialsBadResponse( $e );
+			} else {
+				return $this->handleTemporaryCredentialsFail( $e );
+			}
+			return $this->handleTemporaryCredentialsBadResponse( $e );
+		}
+
+		return $this->createTemporaryCredentials( $this->response->getBody() );
+	}
+
+	public function handleTemporaryCredentialsFail( $e ) {
+		$response = $e->getResponse();
+		if ( 500 === $response->getStatusCode() ) {
+			$body = __( 'It is possible the Callback URL is invalid. Please check.', 'wds-wp-rest-api-connect' );
+			$response->setBody( $body );
+		}
+
+		return $this->handleTemporaryCredentialsBadResponse( $e );
+	}
+
+	/**
+	 * Retrieves token credentials by passing in the temporary credentials,
+	 * the temporary credentials identifier as passed back by the server
+	 * and finally the verifier code.
+	 *
+	 * @param TemporaryCredentials $temporaryCredentials
+	 * @param string               $temporaryIdentifier
+	 * @param string               $verifier
+	 *
+	 * @return TokenCredentials
+	 */
+	public function getTokenCredentials(TemporaryCredentials $temporaryCredentials, $temporaryIdentifier, $verifier)
+	{
+		if ($temporaryIdentifier !== $temporaryCredentials->getIdentifier()) {
+			throw new \InvalidArgumentException(
+				'Temporary identifier passed back by server does not match that of stored temporary credentials.
+				Potential man-in-the-middle.'
+				);
+		}
+
+		$uri            = $this->urlTokenCredentials();
+		$bodyParameters = array( 'oauth_verifier' => $verifier );
+		$headers        = $this->getHeaders( $temporaryCredentials, 'POST', $uri, $bodyParameters );
+
+		try {
+			$this->get_response( $uri, array(
+				'method'  => 'POST',
+				'headers' => $headers,
+				'request_args' => $bodyParameters,
+			) );
+		} catch ( \Exception $e ) {
+			return $this->handleTokenCredentialsBadResponse($e);
+		}
+
+		return $this->createTokenCredentials( $this->response->getBody() );
+	}
+
+	/**
 	 * {@inheritDoc}
 	 *
 	 * @internal The current user endpoint gives a redirection, so we need to
@@ -96,44 +255,35 @@ class WPServer extends Server {
 	 */
 	protected function fetchUserDetails(TokenCredentials $tokenCredentials, $force = true)
 	{
-	 	if (!$this->cachedUserDetailsResponse || $force) {
-	 		$url = $this->urlUserDetails();
+		if (!$this->cachedUserDetailsResponse || $force) {
 
-	 		$client = $this->createHttpClient();
+			try {
+				$this->request( $this->urlUserDetails(), $tokenCredentials, array(
+					'options' => array( 'allow_redirects' => false ),
+				) );
+			} catch (BadResponseException $e) {
+				throw new \Exception( $e->getMessage() );
+			}
 
-	 		$headers = $this->getHeaders($tokenCredentials, 'GET', $url);
+			switch ($this->responseType) {
+				case 'json':
+					$this->cachedUserDetailsResponse = $this->response->json();
+					break;
 
-	 		try {
-	 			$response = $client->get($url, $headers, array('allow_redirects' => false))->send();
-	 		} catch (BadResponseException $e) {
-	 			$response = $e->getResponse();
-	 			$body = $response->getBody();
-	 			$statusCode = $response->getStatusCode();
+				case 'xml':
+					$this->cachedUserDetailsResponse = $this->response->xml();
+					break;
 
-	 			throw new \Exception(
-	 				"Received error [$body] with status code [$statusCode] when retrieving token credentials."
-	 				);
-	 		}
+				case 'string':
+					parse_str($this->response->getBody(), $this->cachedUserDetailsResponse);
+					break;
 
-	 		switch ($this->responseType) {
-	 			case 'json':
-	 			$this->cachedUserDetailsResponse = $response->json();
-	 			break;
+				default:
+					throw new \InvalidArgumentException("Invalid response type [{$this->responseType}].");
+			}
+		}
 
-	 			case 'xml':
-	 			$this->cachedUserDetailsResponse = $response->xml();
-	 			break;
-
-	 			case 'string':
-	 			parse_str($response->getBody(), $this->cachedUserDetailsResponse);
-	 			break;
-
-	 			default:
-	 			throw new \InvalidArgumentException("Invalid response type [{$this->responseType}].");
-	 		}
-	 	}
-
-	 	return $this->cachedUserDetailsResponse;
+		return $this->cachedUserDetailsResponse;
 	}
 
 	/**
