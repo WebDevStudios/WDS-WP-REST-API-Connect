@@ -48,7 +48,9 @@ class Discover {
 	 */
 	protected function discover_api_root() {
 		$response = $this->request( $this->uri, 'head' );
-		$links    = (array) $response['headers']['link'];
+		$links    = isset( $response['headers']['link'] )
+			? (array) $response['headers']['link']
+			: array();
 
 		// Find the correct link by relation
 		foreach ( $links as $link ) {
