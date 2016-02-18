@@ -22,6 +22,7 @@ class Discover {
 
 	/**
 	 * Discover the WordPress API from a URI.
+	 * @since  0.2.1
 	 *
 	 * @param string $uri URI to start the search from.
 	 * @param bool $legacy Should we check for the legacy API too?
@@ -41,6 +42,7 @@ class Discover {
 
 	/**
 	 * Discover the API root from an address.
+	 * @since  0.2.1
 	 *
 	 * @throws \Requests_Exception on HTTP error.
 	 *
@@ -82,6 +84,7 @@ class Discover {
 
 	/**
 	 * Parse a Link header into attributes.
+	 * @since  0.2.1
 	 *
 	 * @param string $link Link header from the response.
 	 * @return array Map of attribute key => attribute value, with link href in `href` key.
@@ -108,6 +111,7 @@ class Discover {
 
 	/**
 	 * Get the index information from a site.
+	 * @since  0.2.1
 	 *
 	 * @return Site Data from the index for the site.
 	 */

@@ -151,6 +151,16 @@ class WPServer extends Server {
 		return $request_response;
 	}
 
+	/**
+	 * Perform a GuzzleClient request, and get the response.
+	 *
+	 * @since  0.2.3
+	 *
+	 * @param  string $uri   URI to request
+	 * @param  array  $args  Array of data to send in request.
+	 *
+	 * @return Guzzle\Http\Message\Response
+	 */
 	public function get_response( $uri, $args ) {
 
 		$args = wp_parse_args( $args, array(
@@ -174,6 +184,8 @@ class WPServer extends Server {
 	/**
 	 * Gets temporary credentials by performing a request to
 	 * the server.
+	 *
+	 * @since  0.2.3
 	 *
 	 * @return TemporaryCredentials
 	 */
@@ -200,6 +212,15 @@ class WPServer extends Server {
 		return $this->createTemporaryCredentials( $this->response->getBody() );
 	}
 
+	/**
+	 * Handle a failed response coming back when getting temporary credentials.
+	 *
+	 * @since  0.2.3
+	 *
+	 * @param Exception $e
+	 *
+	 * @throws CredentialsException
+	 */
 	public function handleTemporaryCredentialsFail( $e ) {
 		$response = $e->getResponse();
 		if ( 500 === $response->getStatusCode() ) {
@@ -214,6 +235,8 @@ class WPServer extends Server {
 	 * Retrieves token credentials by passing in the temporary credentials,
 	 * the temporary credentials identifier as passed back by the server
 	 * and finally the verifier code.
+	 *
+	 * @since  0.2.3
 	 *
 	 * @param TemporaryCredentials $temporaryCredentials
 	 * @param string               $temporaryIdentifier
