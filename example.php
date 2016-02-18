@@ -44,6 +44,15 @@ function wp_json_api_initiate_sample_connection() {
 	 */
 	$discovery = $api_connect->init( $client );
 
+	// Remove old errors
+	$api_connect->delete_stored_error();
+
+	// If you need to reset the stored connection data for any reason:
+	if ( isset( $_GET['reset-connection'] ) ) {
+		$api_connect->reset_connection();
+		wp_die( 'Connection deleted. <a href="'. esc_url( remove_query_arg( 'reset-connection' ) ) .'">Try again?</a>' );
+	}
+
 	// If oauth discovery failed, the WP_Error object will explain why.
 	if ( is_wp_error( $discovery ) ) {
 		// Save this error to the library's error storage (to output as admin notice)
@@ -59,9 +68,6 @@ function wp_json_api_initiate_sample_connection() {
 	// 	wp_redirect( $authorization_url );
 	// 	exit();
 	// }
-
-	// If you need to reset the stored connection data for any reason:
-	// $api_connect->reset_connection();
 }
 add_action( 'admin_init', 'wp_json_api_initiate_sample_connection' );
 
@@ -82,6 +88,8 @@ function wp_json_api_show_sample_connection_notices() {
 		return print( $message );
 	}
 
+	$reset_button = '<p><a class="button-secondary" href="'. add_query_arg( 'reset-connection', true ) .'">' . __( 'Reset Connection', 'wds-rest-connect-ui' ) . '</a></p>';
+
 	// Get the API Description object from the root API endpoint.
 	// echo '<div id="message" class="updated">';
 	// echo '<xmp>API Description endpoint: '. print_r( $api_connect->get_api_description(), true ) .'</xmp>';
@@ -101,6 +109,8 @@ function wp_json_api_show_sample_connection_notices() {
 		echo '<div id="message" class="updated">';
 		echo '<p><strong>'. $response->title->rendered .' retrieved!</strong></p>';
 		echo '<xmp>auth_get_request $response: '. print_r( $response, true ) .'</xmp>';
+		// Add a button to reset the connection.
+		echo $reset_button;
 		echo '</div>';
 
 	}
@@ -125,6 +135,7 @@ function wp_json_api_show_sample_connection_notices() {
 	// 	echo '<div id="message" class="updated">';
 	// 	echo '<p><strong>Post updated!</strong></p>';
 	// 	echo '<xmp>auth_post_request $response: '. print_r( $response, true ) .'</xmp>';
+	// 	echo $reset_button;
 	// 	echo '</div>';
 
 	// }
