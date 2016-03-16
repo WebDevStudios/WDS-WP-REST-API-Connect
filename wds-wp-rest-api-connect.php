@@ -680,29 +680,26 @@ if ( ! class_exists( 'WDS_WP_REST_API\OAuth1\Connect' ) ) :
 			$creds  = $this->get_option( 'token_credentials' );
 			$server = $this->get_server();
 
+			$response = false;
 			try {
 				$response = $server->request( $this->endpoint_url, $creds, array(
 					'request_args' => $request_args,
 					'method'       => $method,
 				) );
+			} catch ( BadResponseException $e ) {
+				$server->response = $e->getResponse();
+				$server->response_code = $server->response->getStatusCode();
+				$body = $server->response->getBody( true );
 			} catch ( Exception $e ) {
 				// @todo maybe use Requests_Exception_HTTP
-
-				if ( $e instanceof BadResponseException ) {
-					$server->response = $e->getResponse();
-					$server->response_code = $server->response->getStatusCode();
-					$body = $server->response->getBody( true );
-				} else {
-					$server->response_code = 'unknown';
-					$body = $server->response = $e->getMessage();
-				}
-
-				$error = sprintf( __( "Received error [%s] with status code [%s] when making request.", 'wds-wp-rest-api-connect' ), $body, $server->response_code );
-
-				$request_response = new WP_Error( 'wp_rest_api_response_error', $error );
-
+				$server->response_code = 'unknown';
+				$body = $server->response = $e->getMessage();
 			}
 
+			if ( ! $response ) {
+				$error = sprintf( __( "Received error [%s] with status code [%s] when making request.", 'wds-wp-rest-api-connect' ), $body, $server->response_code );
+				$response = new WP_Error( 'wp_rest_api_response_error', $error );
+			}
 
 			$this->response = $response;
 			$this->response_code = $server->response_code;
