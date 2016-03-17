@@ -67,7 +67,7 @@ class Discover {
 
 				case 'https://github.com/WP-API/WP-API':
 					// Only allow this if legacy mode is on.
-					if ( $legacy ) {
+					if ( $this->legacy ) {
 						break;
 					}
 
