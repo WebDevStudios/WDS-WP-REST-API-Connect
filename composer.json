@@ -18,8 +18,7 @@
     },
     "require": {
         "php": ">5.3",
-        "league/oauth1-client": "^1.6",
-        "rmccue/requests": "^1.6"
+        "league/oauth1-client": "^1.6"
     },
     "autoload": {
         "psr-4": {

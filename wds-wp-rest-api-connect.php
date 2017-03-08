@@ -25,14 +25,14 @@ if ( ! class_exists( 'WDS_WP_REST_API\OAuth1\Connect' ) ) :
 	 *
 	 * @author  Justin Sternberg <justin@webdevstudios.com>
 	 * @package Connect
-	 * @version 0.2.5
+	 * @version 0.2.6
 	 */
 	class Connect {
 
 		/**
 		 * Connect version
 		 */
-		const VERSION = '0.2.5';
+		const VERSION = '0.2.6';
 
 		/**
 		 * OAuth1 Client

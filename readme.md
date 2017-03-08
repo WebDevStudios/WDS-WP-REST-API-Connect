@@ -1,4 +1,4 @@
-WDS WP REST API Connect (0.2.5) [![Scrutinizer Code Quality](http://img.shields.io/scrutinizer/g/WebDevStudios/WDS-WP-JSON-API-Connect.svg?style=flat)](https://scrutinizer-ci.com/g/WebDevStudios/WDS-WP-JSON-API-Connect/)
+WDS WP REST API Connect (0.2.6) [![Scrutinizer Code Quality](http://img.shields.io/scrutinizer/g/WebDevStudios/WDS-WP-JSON-API-Connect.svg?style=flat)](https://scrutinizer-ci.com/g/WebDevStudios/WDS-WP-JSON-API-Connect/)
 =========
 
 A tool for connecting to the [REST API for WordPress](https://github.com/WP-API/WP-API) via [OAuth 1.0a](https://github.com/WP-API/OAuth1).
@@ -47,6 +47,9 @@ $discovery = $api_connect->init( $client );
 You can then use this object to retrieve the authentication request URL, or if you have been authenticated, make requests. To see a full example, view [the included example.php file](https://github.com/WebDevStudios/WDS-WP-REST-API-Connect/blob/master/example.php).
 
 ## Changelog
+
+### 0.2.6
+* Remove Ryan McCue's Requests library from composer since it now exists in WP core.
 
 ### 0.2.5
 * Fix a typo from a variable which should be using an object property (for legacy mode).
